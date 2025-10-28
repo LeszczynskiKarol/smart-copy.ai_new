@@ -4,6 +4,7 @@ import { prisma } from "../lib/prisma";
 import { authenticateToken } from "../middleware/auth.middleware";
 import { StripeService } from "../services/stripe.service";
 import { processOrder } from "../services/textGenerationService";
+import { sendOrderNotificationToSlack } from "../services/slackNotificationService";
 
 const stripeService = new StripeService();
 
@@ -183,6 +184,11 @@ export const orderRoutes = async (fastify: FastifyInstance) => {
       },
       include: {
         texts: true,
+        user: {
+          select: {
+            email: true,
+          },
+        },
       },
     });
 
@@ -204,6 +210,25 @@ export const orderRoutes = async (fastify: FastifyInstance) => {
       where: { id: user.userId },
       data: { balance: newBalance },
     });
+
+    try {
+      await sendOrderNotificationToSlack({
+        orderNumber: order.orderNumber,
+        orderId: order.id,
+        userEmail: order.user.email,
+        totalPrice: totalPrice.toFixed(2),
+        textsCount: order.texts.length,
+        texts: order.texts.map((t) => ({
+          topic: t.topic,
+          length: t.length,
+          language: t.language,
+          textType: t.textType,
+        })),
+      });
+    } catch (error) {
+      console.error("❌ Slack notification failed:", error);
+      // Nie blokujemy zamówienia jeśli Slack nie działa
+    }
 
     // ✅✅✅ KLUCZOWE: URUCHOM PRZETWARZANIE ZAMÓWIENIA
     console.log(`\n🚀🚀🚀 URUCHAMIAM PRZETWARZANIE ZAMÓWIENIA ${order.id}`);

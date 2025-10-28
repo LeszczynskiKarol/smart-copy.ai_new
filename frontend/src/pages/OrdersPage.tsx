@@ -27,6 +27,7 @@ interface Order {
   status: string;
   totalPrice: number;
   createdAt: string;
+  updatedAt: string;
   texts: Array<{
     id: string;
     topic: string;
@@ -109,23 +110,33 @@ export const OrdersPage = () => {
   useEffect(() => {
     if (!orders) return;
 
-    // Sprawdź czy są nowo ukończone zamówienia
-    const completedOrders = orders.filter((o) => o.status === "COMPLETED");
+    const lastSeenKey = "last-seen-timestamp";
+    const lastSeen = localStorage.getItem(lastSeenKey);
+    const lastSeenDate = lastSeen ? new Date(lastSeen) : null;
 
-    // Sprawdź localStorage dla ostatnio widzianych
-    const lastSeenKey = "last-seen-completed-orders";
-    const lastSeen = JSON.parse(localStorage.getItem(lastSeenKey) || "[]");
+    // Jeśli to pierwsza wizyta (brak lastSeen), nie pokazuj niczego
+    if (!lastSeenDate) {
+      localStorage.setItem(lastSeenKey, new Date().toISOString());
+      return;
+    }
 
-    completedOrders.forEach((order) => {
-      if (!lastSeen.includes(order.id)) {
-        toast.success(`Zamówienie "${getOrderTitle(order)}" gotowe! 🎉`, {
-          duration: 10000,
-        });
-        lastSeen.push(order.id);
-      }
+    // Znajdź zamówienia ukończone od ostatniej wizyty
+    const newlyCompleted = orders.filter((o) => {
+      if (o.status !== "COMPLETED") return false;
+
+      const completedAt = new Date(o.updatedAt || o.createdAt);
+      return completedAt > lastSeenDate;
     });
 
-    localStorage.setItem(lastSeenKey, JSON.stringify(lastSeen));
+    // Pokaż toasty tylko dla nowo ukończonych
+    newlyCompleted.forEach((order) => {
+      toast.success(`Zamówienie "${getOrderTitle(order)}" gotowe! 🎉`, {
+        duration: 10000,
+      });
+    });
+
+    // Zaktualizuj timestamp ostatniej wizyty
+    localStorage.setItem(lastSeenKey, new Date().toISOString());
   }, [orders]);
 
   // Check URL params

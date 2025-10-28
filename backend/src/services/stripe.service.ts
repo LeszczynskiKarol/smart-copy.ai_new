@@ -2,6 +2,7 @@
 import Stripe from "stripe";
 import { prisma } from "../lib/prisma";
 import { processOrder } from "./textGenerationService";
+import { sendOrderNotificationToSlack } from "./slackNotificationService";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-09-30.clover",
@@ -124,9 +125,20 @@ export class StripeService {
       data: { balance: balanceAfter },
     });
 
-    // ✅ DODANE: Jeśli to było doładowanie pod zamówienie
+    // ✅ Jeśli to było doładowanie pod zamówienie
     if (orderId) {
-      const order = await prisma.order.findUnique({ where: { id: orderId } });
+      const order = await prisma.order.findUnique({
+        where: { id: orderId },
+        include: {
+          texts: true,
+          user: {
+            select: {
+              email: true,
+            },
+          },
+        },
+      });
+
       if (order && order.status === "PENDING") {
         const orderPrice = parseFloat(order.totalPrice.toString());
         const newBalance = balanceAfter - orderPrice;
@@ -156,10 +168,28 @@ export class StripeService {
           }),
         ]);
 
-        // ✅✅✅ KLUCZOWE: URUCHOM PRZETWARZANIE ZAMÓWIENIA
+        // <<<< DODAJ POWIADOMIENIE SLACK >>>>
+        try {
+          await sendOrderNotificationToSlack({
+            orderNumber: order.orderNumber,
+            orderId: order.id,
+            userEmail: order.user.email,
+            totalPrice: orderPrice.toFixed(2),
+            textsCount: order.texts.length,
+            texts: order.texts.map((t) => ({
+              topic: t.topic,
+              length: t.length,
+              language: t.language,
+              textType: t.textType,
+            })),
+          });
+        } catch (error) {
+          console.error("❌ Slack notification failed:", error);
+        }
+
+        // ✅✅✅ URUCHOM PRZETWARZANIE ZAMÓWIENIA
         console.log(`\n🚀🚀🚀 URUCHAMIAM PRZETWARZANIE ZAMÓWIENIA ${orderId}`);
 
-        // Uruchom asynchronicznie (nie czekaj na zakończenie)
         processOrder(orderId)
           .then(() => {
             console.log(`✅ Zamówienie ${orderId} przetworzone`);
