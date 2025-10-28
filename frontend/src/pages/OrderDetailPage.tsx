@@ -1,6 +1,7 @@
 // frontend/src/pages/OrderDetailPage.tsx
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { capitalizeFirstLetter } from "@/utils/orderTitle";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { UserSidebar } from "@/components/layout/UserSidebar";
 import { apiClient } from "@/lib/api";
@@ -14,7 +15,6 @@ import {
   Calendar,
   FileText,
   Globe,
-  DollarSign,
   Copy,
   Edit,
   Save,
@@ -494,7 +494,7 @@ const TextCard = ({ text, index, orderId }: any) => {
               {index + 1}
             </span>
             <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-              {text.topic}
+              <h3>{capitalizeFirstLetter(text.topic)}</h3>
             </h3>
             {isGenerated && <CheckCircle className="w-5 h-5 text-green-500" />}
           </div>
@@ -508,7 +508,6 @@ const TextCard = ({ text, index, orderId }: any) => {
             <span className="flex items-center gap-1">
               🌍 {text.language.toUpperCase()}
             </span>
-            <span className="flex items-center gap-1">📝 {text.textType}</span>
           </div>
           {text.guidelines && (
             <div className="ml-11 mt-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
@@ -899,7 +898,7 @@ export const OrderDetailPage = () => {
               </div>
               <div>
                 <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400 mb-2">
-                  <DollarSign className="w-4 h-4" />
+                  <Edit className="w-4 h-4" />
                   <span className="text-sm">Status</span>
                 </div>
                 <StatusBadge status={order.status} />

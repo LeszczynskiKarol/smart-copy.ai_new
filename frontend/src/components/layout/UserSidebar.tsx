@@ -65,8 +65,13 @@ export const UserSidebar = () => {
     if (path === "/orders?mode=new") {
       return pathname === "/orders" && searchParams.get("mode") === "new";
     }
+
     if (path === "/orders") {
-      return pathname === "/orders" && searchParams.get("mode") !== "new";
+      // ✅ Podświetl dla /orders oraz /orders/{id}
+      return (
+        (pathname === "/orders" && searchParams.get("mode") !== "new") ||
+        pathname.startsWith("/orders/")
+      );
     }
 
     // Dla innych ścieżek
@@ -110,7 +115,7 @@ export const UserSidebar = () => {
                   onClick={() => setSidebarOpen(false)}
                   className="lg:block hidden p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
                 >
-                  <ChevronLeft className="w-5 h-5" />
+                  <ChevronLeft className="w-5 h-5 text-gray-500 dark:text-gray-500" />
                 </button>
               </div>
 
@@ -197,7 +202,7 @@ export const UserSidebar = () => {
           onClick={() => setSidebarOpen(true)}
           className="hidden lg:block fixed top-20 left-4 z-40 p-2 rounded-lg bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700"
         >
-          <ChevronRight className="w-5 h-5" />
+          <ChevronRight className="w-5 h-5 text-gray-500 dark:text-gray-500" />
         </button>
       )}
     </>

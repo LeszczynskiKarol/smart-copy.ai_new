@@ -83,11 +83,11 @@ export const LoginForm = () => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="w-full max-w-md"
+      className="w-full max-w-md bg-white dark:bg-gray-800"
     >
-      <div className="card">
+      <div className="card bg-white dark:bg-gray-800">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <h1 className="text-3xl font-bold text-gray-600 dark:text-gray-300 mb-2">
             Witaj ponownie!
           </h1>
           <p className="text-gray-600 dark:text-gray-300">
@@ -98,21 +98,23 @@ export const LoginForm = () => {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           {/* Email */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">
               Adres email
             </label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-600 dark:text-gray-300 " />
               <input
                 {...register("email")}
                 type="email"
                 placeholder="jan.kowalski@example.com"
-                className={`input pl-10 ${errors.email ? "input-error" : ""}`}
+                className={`input pl-10 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 ${
+                  errors.email ? "input-error" : ""
+                }`}
                 autoComplete="email"
               />
             </div>
             {errors.email && (
-              <p className="text-red-500 text-sm mt-1">
+              <p className="text-red-500 text-sm mt-1 ">
                 {errors.email.message}
               </p>
             )}
@@ -131,13 +133,13 @@ export const LoginForm = () => {
                 Zapomniałeś hasła?
               </Link>
             </div>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <div className="relative ">
+              <Lock className="absolute  left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 {...register("password")}
                 type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
-                className={`input pl-10 pr-10 ${
+                className={`input bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 pl-10 pr-10 ${
                   errors.password ? "input-error" : ""
                 }`}
                 autoComplete="current-password"
@@ -179,12 +181,12 @@ export const LoginForm = () => {
         </form>
 
         {/* reCAPTCHA info */}
-        <p className="text-xs text-gray-500 text-center mt-4">
+        <p className="text-xs text-gray-700 dark:text-gray-400 text-center mt-4">
           Ta strona jest chroniona przez reCAPTCHA Google.
         </p>
 
         {/* Register Link */}
-        <p className="text-center text-gray-600 mt-6">
+        <p className="text-center text-gray-700 dark:text-gray-400 mt-6">
           Nie masz konta?{" "}
           <Link
             to="/register"

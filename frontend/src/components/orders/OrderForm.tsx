@@ -170,6 +170,35 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
   const watchedUnit = watch("lengthUnit", "PAGES");
   const watchedTextType = watch("textType", "");
 
+  const normalizeUrl = (url: string): string => {
+    let normalized = url.trim();
+
+    // Usuń slash z końca
+    normalized = normalized.replace(/\/$/, "");
+
+    // Dodaj https:// jeśli brak protokołu
+    if (
+      !normalized.startsWith("http://") &&
+      !normalized.startsWith("https://")
+    ) {
+      normalized = "https://" + normalized;
+    }
+
+    return normalized;
+  };
+
+  // Sprawdź czy URL już istnieje
+  const isDuplicateUrl = (url: string): boolean => {
+    return urls.some(
+      (existing) => existing.toLowerCase() === url.toLowerCase()
+    );
+  };
+
+  // Sprawdź czy plik już istnieje (po nazwie)
+  const isDuplicateFile = (file: File): boolean => {
+    return files.some((existing) => existing.name === file.name);
+  };
+
   // KONWERSJA PRZY ZMIANIE JEDNOSTKI
   const handleUnitChange = (newUnit: LengthUnit) => {
     const currentLength = watchedLength;
@@ -218,34 +247,29 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
 
   // DODAWANIE URL
   const handleAddUrl = () => {
-    let trimmedUrl = urlInput.trim();
+    const trimmedUrl = urlInput.trim();
     if (!trimmedUrl) return;
 
-    // ✅ NOWE: Sprawdź limit
+    // ✅ Sprawdź limit
     if (urls.length + files.length >= 6) {
-      toast.error("Maksymalnie 6 źródeł łącznie (linki + pliki)");
+      toast.error("Maksymalnie 6 źródeł łącznie");
       return;
     }
 
-    // AUTO-FIX: Dodaj https://
-    if (
-      !trimmedUrl.startsWith("http://") &&
-      !trimmedUrl.startsWith("https://")
-    ) {
-      trimmedUrl = "https://" + trimmedUrl;
-    }
-
-    // Walidacja URL
     try {
-      new URL(trimmedUrl);
+      // ✅ Normalizuj URL
+      const normalizedUrl = normalizeUrl(trimmedUrl);
 
-      // ✅ NOWE: Sprawdź duplikaty
-      if (urls.includes(trimmedUrl)) {
+      // ✅ Waliduj URL
+      new URL(normalizedUrl);
+
+      // ✅ Sprawdź duplikaty
+      if (isDuplicateUrl(normalizedUrl)) {
         toast.error("Ten adres już został dodany");
         return;
       }
 
-      setUrls([...urls, trimmedUrl]);
+      setUrls([...urls, normalizedUrl]);
       setUrlInput("");
       toast.success("Link dodany");
     } catch {
@@ -253,63 +277,118 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
     }
   };
 
-  // USUWANIE URL
+  // USUWANIE URL (z głównego formularza i modala)
   const handleRemoveUrl = (index: number) => {
-    setUrls(urls.filter((_, i) => i !== index));
+    const newUrls = urls.filter((_, i) => i !== index);
+    setUrls(newUrls);
+
+    // Zaktualizuj formularz
+    const currentSources = watch("userSources") || { urls: [], files: [] };
+    setValue("userSources", { ...currentSources, urls: newUrls });
+
     toast.success("Link usunięty");
   };
 
-  // DODAWANIE PLIKU
+  // DODAWANIE PLIKÓW
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
 
-    // ✅ NOWE: Sprawdź limit PRZED dodaniem
+    // ✅ Sprawdź limit PRZED dodaniem
     const remainingSlots = 6 - urls.length - files.length;
+
     if (selectedFiles.length > remainingSlots) {
       toast.error(
-        `Możesz dodać maksymalnie ${remainingSlots} więcej plików (limit: 6 źródeł łącznie)`
+        remainingSlots > 0
+          ? `Możesz dodać maksymalnie ${remainingSlots} więcej ${
+              remainingSlots === 1 ? "plik" : "plików"
+            } (limit: 6 źródeł)`
+          : "Osiągnięto limit 6 źródeł"
       );
       return;
     }
 
-    // Walidacja typu i rozmiaru...
     const allowedTypes = [
       "application/pdf",
       "application/msword",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ];
 
-    const validFiles = selectedFiles.filter((file) => {
-      if (!allowedTypes.includes(file.type)) {
-        toast.error(`${file.name}: Nieobsługiwany format`);
-        return false;
-      }
-      if (file.size > 10 * 1024 * 1024) {
-        toast.error(`${file.name}: Plik zbyt duży (max 10MB)`);
-        return false;
-      }
-      return true;
-    });
+    const validFiles: File[] = [];
+    const maxSize = 50 * 1024 * 1024; // 10MB
 
-    setFiles([...files, ...validFiles]);
-    if (validFiles.length > 0) {
-      toast.success(`Dodano ${validFiles.length} plików`);
+    for (const file of selectedFiles) {
+      // ✅ Sprawdź duplikaty
+      if (isDuplicateFile(file)) {
+        toast.error(`${file.name}: Plik już został dodany`);
+        continue;
+      }
+
+      // Sprawdź typ
+      if (!allowedTypes.includes(file.type)) {
+        toast.error(
+          `${file.name}: Nieobsługiwany format (tylko PDF, DOC, DOCX)`
+        );
+        continue;
+      }
+
+      // Sprawdź rozmiar
+      if (file.size > maxSize) {
+        toast.error(`${file.name}: Plik zbyt duży (max 50MB)`);
+        continue;
+      }
+
+      validFiles.push(file);
     }
+
+    if (validFiles.length > 0) {
+      setFiles([...files, ...validFiles]);
+      toast.success(
+        `Dodano ${validFiles.length} ${
+          validFiles.length === 1 ? "plik" : "plików"
+        }`
+      );
+    }
+
+    // Reset input
+    e.target.value = "";
   };
 
-  // USUWANIE PLIKU
+  // USUWANIE PLIKÓW (z głównego formularza i modala)
   const handleRemoveFile = (index: number) => {
-    setFiles(files.filter((_, i) => i !== index));
+    const newFiles = files.filter((_, i) => i !== index);
+    setFiles(newFiles);
+
+    // Zaktualizuj formularz
+    const currentSources = watch("userSources") || { urls: [], files: [] };
+    setValue("userSources", { ...currentSources, files: newFiles });
+
     toast.success("Plik usunięty");
   };
 
-  // ZATWIERDZENIE ŹRÓDEŁ
+  // ZATWIERDZENIE ŹRÓDEŁ (zamknięcie modala)
   const handleSaveUserSources = () => {
     setValue("userSources", { urls, files });
     setShowSourcesModal(false);
-    toast.success(`Dodano ${urls.length + files.length} źródeł użytkownika`, {
-      icon: "✅",
-    });
+
+    const totalSources = urls.length + files.length;
+    if (totalSources > 0) {
+      toast.success(
+        `Dodano ${totalSources} ${totalSources === 1 ? "źródło" : "źródeł"}`,
+        {
+          icon: "✅",
+        }
+      );
+    }
+  };
+
+  // OTWARCIE MODALA - załaduj bieżące źródła
+  const handleOpenSourcesModal = () => {
+    const currentSources = watch("userSources");
+    if (currentSources) {
+      setUrls(currentSources.urls || []);
+      setFiles(currentSources.files || []);
+    }
+    setShowSourcesModal(true);
   };
 
   const handleAddText = async () => {
@@ -813,39 +892,102 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
           >
             <div className="flex items-center justify-between mb-3">
               <label className="block text-sm font-bold text-gray-900 dark:text-white">
-                Własne źródła (opcjonalnie)
+                Dodaj własne źródła (opcjonalnie)
               </label>
               <div className="group relative">
                 <Info className="w-4 h-4 text-gray-400 cursor-help" />
-                <div className="absolute right-0 bottom-6 w-64 p-3 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                <div className="absolute right-0 bottom-6 w-64 p-3 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 shadow-xl">
                   Smart-Copy uwzględni wskazane przez Ciebie strony lub
                   dokumenty jako materiały źródłowe, na podstawie których
                   napisze w pełni oryginalny tekst.
+                  <br />
+                  <br />
+                  <strong>Maksymalnie 6 źródeł</strong> (linki + pliki).
                 </div>
               </div>
             </div>
 
+            {/* Przycisk dodawania */}
             <button
               type="button"
-              onClick={() => {
-                // Ustaw bieżące źródła przed otwarciem modala
-                const currentSources = watch("userSources");
-                if (currentSources) {
-                  setUrls(currentSources.urls || []);
-                  setFiles(currentSources.files || []);
-                }
-                setShowSourcesModal(true);
-              }}
-              className="btn btn-secondary w-full flex items-center justify-center gap-2"
+              onClick={handleOpenSourcesModal}
+              className="btn btn-secondary w-full flex items-center justify-center gap-2 mb-4"
             >
-              <LinkIcon className="w-4 h-4" />
-              Dodaj źródła/inspiracje
-              {urls.length + files.length > 0 && (
-                <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-full text-xs font-bold">
-                  {urls.length + files.length}
-                </span>
-              )}
+              <Plus className="w-4 h-4" />
+              {urls.length + files.length > 0
+                ? `Edytuj źródła (${urls.length + files.length}/6)`
+                : "Dodaj źródła"}
             </button>
+
+            {/* 🎯 PODGLĄD DODANYCH ŹRÓDEŁ W GŁÓWNYM FORMULARZU */}
+            {(urls.length > 0 || files.length > 0) && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                className="space-y-2"
+              >
+                {/* Linki */}
+                {urls.map((url, index) => (
+                  <motion.div
+                    key={`url-${index}`}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 10 }}
+                    className="flex items-center gap-2 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800"
+                  >
+                    <LinkIcon className="w-4 h-4 text-purple-600 dark:text-purple-400 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p
+                        className="text-sm text-gray-700 dark:text-gray-300 truncate"
+                        title={url}
+                      >
+                        {url}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveUrl(index)}
+                      className="p-1.5 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors flex-shrink-0"
+                      title="Usuń link"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </motion.div>
+                ))}
+
+                {/* Pliki */}
+                {files.map((file, index) => (
+                  <motion.div
+                    key={`file-${index}`}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 10 }}
+                    className="flex items-center gap-2 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800"
+                  >
+                    <FileText className="w-4 h-4 text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p
+                        className="text-sm text-gray-700 dark:text-gray-300 truncate"
+                        title={file.name}
+                      >
+                        {file.name}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {(file.size / 1024).toFixed(1)} KB
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveFile(index)}
+                      className="p-1.5 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors flex-shrink-0"
+                      title="Usuń plik"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </motion.div>
+                ))}
+              </motion.div>
+            )}
           </motion.div>
 
           {/* Wytyczne */}
@@ -967,7 +1109,7 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
             onClick={() => setShowSourcesModal(false)}
           >
             <motion.div
@@ -975,12 +1117,18 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6"
+              className="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col shadow-2xl"
             >
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  Dodaj własne źródła
-                </h3>
+              {/* Header */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    Dodaj własne źródła
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    {urls.length + files.length}/6 źródeł
+                  </p>
+                </div>
                 <button
                   onClick={() => setShowSourcesModal(false)}
                   className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
@@ -989,116 +1137,146 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
                 </button>
               </div>
 
-              {/* DODAWANIE LINKÓW */}
-              <div className="mb-6">
-                <label className="block text-sm font-bold text-gray-900 dark:text-white mb-3">
-                  Linki do stron internetowych
-                </label>
-                <div className="flex gap-2 mb-3">
-                  <input
-                    type="url"
-                    value={urlInput}
-                    onChange={(e) => setUrlInput(e.target.value)}
-                    onKeyPress={(e) => e.key === "Enter" && handleAddUrl()}
-                    placeholder="https://example.com/article"
-                    className="input flex-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddUrl}
-                    className="btn btn-primary px-6"
-                  >
-                    Dodaj
-                  </button>
+              {/* Content - scrollable */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {/* LINKI */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-900 dark:text-white mb-3">
+                    <LinkIcon className="w-4 h-4 inline mr-2" />
+                    Linki do stron internetowych
+                  </label>
+
+                  {/* Input + button */}
+                  <div className="flex gap-2 mb-3">
+                    <input
+                      type="text"
+                      value={urlInput}
+                      onChange={(e) => setUrlInput(e.target.value)}
+                      onKeyPress={(e) => e.key === "Enter" && handleAddUrl()}
+                      placeholder="https://example.com/article"
+                      disabled={urls.length + files.length >= 6}
+                      className="input flex-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddUrl}
+                      disabled={urls.length + files.length >= 6}
+                      className="btn btn-primary px-6 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Dodaj
+                    </button>
+                  </div>
+
+                  {/* Lista URL */}
+                  {urls.length > 0 && (
+                    <div className="space-y-2">
+                      {urls.map((url, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center gap-2 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800"
+                        >
+                          <LinkIcon className="w-4 h-4 text-purple-600 dark:text-purple-400 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p
+                              className="text-sm text-gray-700 dark:text-gray-300 truncate"
+                              title={url}
+                            >
+                              {url}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => handleRemoveUrl(index)}
+                            className="p-1.5 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors flex-shrink-0"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                {/* Lista dodanych URL */}
-                {urls.length > 0 && (
-                  <div className="space-y-2">
-                    {urls.map((url, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
-                      >
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <LinkIcon className="w-4 h-4 text-purple-600 dark:text-purple-400 flex-shrink-0" />
-                          <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
-                            {url}
-                          </span>
-                        </div>
-                        <button
-                          onClick={() => handleRemoveUrl(index)}
-                          className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors flex-shrink-0 ml-2"
+                {/* PLIKI */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-900 dark:text-white mb-3">
+                    <Upload className="w-4 h-4 inline mr-2" />
+                    Pliki dokumentów (PDF, DOC, DOCX)
+                  </label>
+
+                  {/* Upload button */}
+                  <label
+                    className={`flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg transition-all ${
+                      urls.length + files.length >= 6
+                        ? "border-gray-300 dark:border-gray-600 opacity-50 cursor-not-allowed"
+                        : "border-gray-300 dark:border-gray-600 cursor-pointer hover:border-indigo-500 dark:hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/10"
+                    }`}
+                  >
+                    <Upload className="w-5 h-5 text-gray-500" />
+                    <span className="text-gray-700 dark:text-gray-300 font-medium">
+                      {urls.length + files.length >= 6
+                        ? "Osiągnięto limit 6 źródeł"
+                        : "Kliknij aby wybrać pliki"}
+                    </span>
+                    <input
+                      type="file"
+                      multiple
+                      accept=".pdf,.doc,.docx"
+                      onChange={handleFileSelect}
+                      disabled={urls.length + files.length >= 6}
+                      className="hidden"
+                    />
+                  </label>
+
+                  {/* Lista plików */}
+                  {files.length > 0 && (
+                    <div className="space-y-2 mt-3">
+                      {files.map((file, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center gap-2 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800"
                         >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* UPLOAD PLIKÓW */}
-              <div className="mb-6">
-                <label className="block text-sm font-bold text-gray-900 dark:text-white mb-3">
-                  Pliki (PDF, DOC, DOCX)
-                </label>
-                <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-purple-500 dark:hover:border-purple-400 transition-colors">
-                  <Upload className="w-5 h-5 text-gray-500" />
-                  <span className="text-gray-700 dark:text-gray-300">
-                    Kliknij aby wybrać pliki
-                  </span>
-                  <input
-                    type="file"
-                    multiple
-                    accept=".pdf,.doc,.docx"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
-                </label>
-
-                {/* Lista dodanych plików */}
-                {files.length > 0 && (
-                  <div className="space-y-2 mt-3">
-                    {files.map((file, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
-                      >
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <FileText className="w-4 h-4 text-purple-600 dark:text-purple-400 flex-shrink-0" />
+                          <FileText className="w-4 h-4 text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm text-gray-700 dark:text-gray-300 truncate">
                               {file.name}
                             </p>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
                               {(file.size / 1024).toFixed(1)} KB
                             </p>
                           </div>
+                          <button
+                            onClick={() => handleRemoveFile(index)}
+                            className="p-1.5 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors flex-shrink-0"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
-                        <button
-                          onClick={() => handleRemoveFile(index)}
-                          className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors flex-shrink-0 ml-2"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* INFO */}
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4 rounded-lg">
+                  <div className="flex gap-3">
+                    <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm text-gray-700 dark:text-gray-300 space-y-2">
+                      <p>
+                        <strong>Maksymalnie 6 źródeł łącznie</strong> (linki +
+                        pliki).
+                      </p>
+                      <p>
+                        Smart-Copy wykorzysta wskazane materiały jako podstawę
+                        do napisania w pełni oryginalnego tekstu. Łączna długość
+                        źródeł: do 200,000 znaków.
+                      </p>
+                    </div>
                   </div>
-                )}
+                </div>
               </div>
 
-              {/* INFO */}
-              <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg mb-6">
-                <p className="text-sm text-gray-700 dark:text-gray-300">
-                  <strong>Uwaga:</strong> Smart-Copy wykorzysta wskazane
-                  materiały jako podstawę do napisania oryginalnego tekstu.
-                  Maksymalna łączna długość: 200,000 znaków.
-                </p>
-              </div>
-
-              {/* PRZYCISKI */}
-              <div className="flex gap-3">
+              {/* Footer - buttons */}
+              <div className="flex gap-3 p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
                 <button
                   type="button"
                   onClick={() => setShowSourcesModal(false)}
@@ -1109,9 +1287,10 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
                 <button
                   type="button"
                   onClick={handleSaveUserSources}
-                  className="btn btn-primary flex-1"
+                  className="btn btn-primary flex-1 flex items-center justify-center gap-2"
                 >
-                  Zatwierdź źródła ({urls.length + files.length})
+                  <Check className="w-4 h-4" />
+                  Zatwierdź ({urls.length + files.length})
                 </button>
               </div>
             </motion.div>

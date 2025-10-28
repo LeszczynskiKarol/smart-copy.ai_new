@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 import { useAuthStore } from "@/store/authStore";
 import { Sparkles, FileText, Package } from "lucide-react";
 import { motion } from "framer-motion";
+import { capitalizeFirstLetter } from "@/utils/orderTitle";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api";
@@ -23,6 +24,26 @@ export const DashboardPage = () => {
       return res.data;
     },
   });
+
+  // ✅ Zbierz wszystkie teksty ze wszystkich zamówień
+  const allTexts = orders
+    ? orders.flatMap((order: any) =>
+        order.texts.map((text: any) => ({
+          ...text,
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          createdAt: order.createdAt,
+        }))
+      )
+    : [];
+
+  // Sortuj od najnowszych i weź 3
+  const recentTexts = allTexts
+    .sort(
+      (a: any, b: any) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+    .slice(0, 3);
 
   useEffect(() => {
     if (searchParams.get("payment") === "success" && !toastShown.current) {
@@ -112,7 +133,7 @@ export const DashboardPage = () => {
                 to="/orders"
                 className="btn btn-secondary flex items-center justify-center gap-2 py-4"
               >
-                <Package className="w-5 h-5" />
+                <Package className="w-5 h-5 " />
                 Moje zamówienia
               </Link>
             </div>
@@ -146,7 +167,7 @@ export const DashboardPage = () => {
             ))}
           </div>
 
-          {/* Recent Orders */}
+          {/* Recent Texts - ✅ ZMIENIONA SEKCJA */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -165,34 +186,39 @@ export const DashboardPage = () => {
               </Link>
             </div>
 
-            {orders && orders.length > 0 ? (
+            {recentTexts && recentTexts.length > 0 ? (
               <div className="space-y-3">
-                {orders.slice(0, 3).map((order: any) => (
+                {recentTexts.map((text: any) => (
                   <Link
-                    key={order.id}
-                    to="/orders"
+                    key={text.id}
+                    to={`/orders/${text.orderId}`}
                     className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                   >
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
-                        <Package className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                        <FileText className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                       </div>
-                      <div>
-                        <p className="font-semibold text-gray-900 dark:text-white">
-                          {order.orderNumber}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900 dark:text-white truncate">
+                          {capitalizeFirstLetter(text.topic)}
                         </p>
                         <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {order.texts.length}{" "}
-                          {order.texts.length === 1 ? "tekst" : "teksty"}
+                          {text.pages}{" "}
+                          {text.pages === 1
+                            ? "strona"
+                            : text.pages < 5
+                            ? "strony"
+                            : "stron"}{" "}
+                          • {text.length.toLocaleString()} znaków
                         </p>
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right flex-shrink-0 ml-4">
                       <p className="font-bold text-purple-600 dark:text-purple-400">
-                        {parseFloat(order.totalPrice).toFixed(2)} zł
+                        {parseFloat(text.price).toFixed(2)} zł
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {new Date(order.createdAt).toLocaleDateString("pl-PL")}
+                        {new Date(text.createdAt).toLocaleDateString("pl-PL")}
                       </p>
                     </div>
                   </Link>
@@ -204,10 +230,10 @@ export const DashboardPage = () => {
                   <FileText className="w-8 h-8 text-gray-400 dark:text-gray-500" />
                 </div>
                 <p className="text-gray-500 dark:text-gray-400 mb-4">
-                  Jeszcze nie masz żadnych zamówień
+                  Jeszcze nie masz żadnych tekstów
                 </p>
-                <Link to="/orders" className="btn btn-primary">
-                  Złóż pierwsze zamówienie
+                <Link to="/orders?mode=new" className="btn btn-primary">
+                  Zamów pierwszy tekst
                 </Link>
               </div>
             )}

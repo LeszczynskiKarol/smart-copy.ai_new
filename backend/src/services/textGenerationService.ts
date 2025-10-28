@@ -10,6 +10,11 @@ const anthropic = new Anthropic({
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY!;
 const GOOGLE_CX = process.env.GOOGLE_CX || "47c4cfcb21523490f";
 
+function capitalizeFirstLetter(text: string): string {
+  if (!text) return text;
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 const LANGUAGE_MAP: Record<string, string> = {
   pl: "pl",
   en: "en",
@@ -58,8 +63,9 @@ async function sendOrderCompletedEmail(
     // Tytuł zamówienia
     const firstTopic = order.texts[0]?.topic || "Zamówienie";
     const words = firstTopic.split(" ");
-    const orderTitle =
+    const rawTitle =
       words.length <= 5 ? firstTopic : words.slice(0, 5).join(" ") + "...";
+    const orderTitle = capitalizeFirstLetter(rawTitle);
 
     const htmlContent = `
       <h2>Twoje zamówienie jest gotowe!</h2>

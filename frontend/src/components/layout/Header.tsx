@@ -20,7 +20,7 @@ export const Header = () => {
   ];
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg border-b border-gray-200 dark:border-gray-700">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-gray-900/90 backdrop-blur-lg border-b border-gray-200 dark:border-gray-700">
       <nav className="container-custom">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
@@ -28,7 +28,7 @@ export const Header = () => {
             <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
               <Sparkles className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+            <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text dark:text-gray-400 text-transparent">
               Smart-Copy.ai
             </span>
           </Link>
@@ -55,7 +55,7 @@ export const Header = () => {
               {theme === "light" ? (
                 <Moon className="w-5 h-5" />
               ) : (
-                <Sun className="w-5 h-5" />
+                <Sun className="w-5 h-5 text-gray-500 dark:text-gray-400" />
               )}
             </button>
 
@@ -99,7 +99,7 @@ export const Header = () => {
                   Zaloguj się
                 </Link>
                 <Link to="/register" className="btn btn-primary">
-                  Rozpocznij za darmo
+                  Załóż konto
                 </Link>
               </>
             )}
@@ -138,7 +138,7 @@ export const Header = () => {
                     </>
                   ) : (
                     <>
-                      <Sun className="w-4 h-4 mr-2" /> Light Mode
+                      <Sun className="w-4 h-4 mr-2 " /> Light Mode
                     </>
                   )}
                 </button>

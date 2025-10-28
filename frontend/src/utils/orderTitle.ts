@@ -1,7 +1,7 @@
 // frontend/src/utils/orderTitle.ts
 
 // Helper do kapitalizacji pierwszej litery
-function capitalizeFirstLetter(text: string): string {
+export function capitalizeFirstLetter(text: string): string {
   if (!text) return text;
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
