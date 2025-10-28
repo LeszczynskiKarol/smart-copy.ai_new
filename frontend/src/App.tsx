@@ -7,10 +7,12 @@ import { Toaster } from "react-hot-toast";
 import { HelmetProvider } from "react-helmet-async";
 import { useAuthStore } from "./store/authStore";
 import { useEffect } from "react";
-
+import { ScrollToTop } from "./components/ScrollToTop";
 // Pages
+import { AIProductDescriptionsPage } from "./pages/AIProductDescriptionsPage";
 import { OrderDetailPage } from "@/pages/OrderDetailPage";
 import { DepositPage } from "./pages/DepositPage";
+import { AICopywriterPage } from "./pages/AICopywriterPage";
 import { AdminDashboard } from "./pages/admin/AdminDashboard";
 import { UsersManagement } from "./pages/admin/UsersManagement";
 import { AdminOrderDetail } from "@/pages/admin/AdminOrderDetail";
@@ -88,11 +90,17 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <HelmetProvider>
           <BrowserRouter>
+            <ScrollToTop />
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<HomePage />} />
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
+              <Route path="/ai-copywriter" element={<AICopywriterPage />} />
+              <Route
+                path="/ai-generator-opisow-produktow"
+                element={<AIProductDescriptionsPage />}
+              />
 
               {/* Auth Routes (public only) */}
               <Route
@@ -114,7 +122,6 @@ function App() {
               <Route path="/verify" element={<VerifyPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
-
               {/* Protected Routes */}
               <Route
                 path="/dashboard"
@@ -140,7 +147,6 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-
               <Route
                 path="/deposit"
                 element={
@@ -149,7 +155,6 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-
               <Route
                 path="/admin"
                 element={

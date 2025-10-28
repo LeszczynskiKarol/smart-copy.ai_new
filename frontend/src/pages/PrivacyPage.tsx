@@ -88,7 +88,7 @@ export const PrivacyPage = () => {
               <h2>9. Kontakt</h2>
               <p>
                 W sprawach dotyczących przetwarzania danych osobowych prosimy o
-                kontakt: kontakt@smart-copy.ai
+                kontakt: support@smart-copy.ai
               </p>
             </div>
           </div>

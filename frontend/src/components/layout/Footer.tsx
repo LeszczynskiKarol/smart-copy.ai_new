@@ -1,7 +1,13 @@
 // frontend/src/components/layout/Footer.tsx
 
 import { Link } from "react-router-dom";
-import { Sparkles, Mail, Facebook, Twitter, Linkedin } from "lucide-react";
+import {
+  Sparkles,
+  Mail,
+  //Facebook,
+  // Twitter,
+  // Linkedin
+} from "lucide-react";
 
 export const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -32,7 +38,7 @@ export const Footer = () => {
   return (
     <footer className="bg-gray-900 text-gray-300">
       <div className="container-custom py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
           {/* Logo & Description */}
           <div className="lg:col-span-2">
             <Link to="/" className="flex items-center gap-2 mb-4 group">
@@ -43,11 +49,11 @@ export const Footer = () => {
                 Smart-Copy.ai
               </span>
             </Link>
-            <p className="text-sm text-gray-400 mb-4">
+            <p className="text-sm text-gray-400 mb-4 mr-4">
               Twórz profesjonalne treści w kilka sekund dzięki sztucznej
               inteligencji. Oszczędzaj czas i zwiększaj produktywność.
             </p>
-            <div className="flex gap-4">
+            {/* <div className="flex gap-4">
               <a
                 href="https://facebook.com"
                 target="_blank"
@@ -72,7 +78,7 @@ export const Footer = () => {
               >
                 <Linkedin className="w-5 h-5" />
               </a>
-            </div>
+            </div>*/}
           </div>
 
           {/* Links Columns */}
@@ -87,22 +93,6 @@ export const Footer = () => {
                   >
                     {link.name}
                   </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="text-white font-semibold mb-4">Firma</h3>
-            <ul className="space-y-2">
-              {footerLinks.company.map((link) => (
-                <li key={link.name}>
-                  <Link
-                    to={link.href}
-                    className="text-sm hover:text-purple-400 transition-colors"
-                  >
-                    {link.name}
-                  </Link>
                 </li>
               ))}
             </ul>
@@ -125,18 +115,24 @@ export const Footer = () => {
           </div>
 
           <div>
-            <h3 className="text-white font-semibold mb-4">Wsparcie</h3>
+            <h3 className="text-white font-semibold mb-4">Strony</h3>
             <ul className="space-y-2">
-              {footerLinks.support.map((link) => (
-                <li key={link.name}>
-                  <Link
-                    to={link.href}
-                    className="text-sm hover:text-purple-400 transition-colors"
-                  >
-                    {link.name}
-                  </Link>
-                </li>
-              ))}
+              <li>
+                <Link
+                  to="/ai-copywriter"
+                  className="text-sm hover:text-purple-400 transition-colors"
+                >
+                  AI copywriter
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/ai-generator-opisow-produktow"
+                  className="text-sm hover:text-purple-400 transition-colors"
+                >
+                  AI generator opisów produktów
+                </Link>
+              </li>
             </ul>
           </div>
         </div>
@@ -149,10 +145,10 @@ export const Footer = () => {
           <div className="flex items-center gap-2 text-sm text-gray-400">
             <Mail className="w-4 h-4" />
             <a
-              href="mailto:kontakt@smart-copy.ai"
+              href="mailto:support@smart-copy.ai"
               className="hover:text-purple-400 transition-colors"
             >
-              kontakt@smart-copy.ai
+              support@smart-copy.ai
             </a>
           </div>
         </div>
