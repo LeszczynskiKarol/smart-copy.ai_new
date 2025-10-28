@@ -7,25 +7,38 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  USER
+  ADMIN
+}
+
 model User {
-  id            String   @id @default(uuid())
-  email         String   @unique
-  password      String
-  firstName     String?
-  lastName      String?
-  isVerified    Boolean  @default(false)
-  isActive      Boolean  @default(true)
-  acceptedTerms Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  lastLoginAt   DateTime?
+  id                String    @id @default(uuid())
+  email             String    @unique
+  password          String
+  firstName         String?
+  lastName          String?
+  role              Role      @default(USER)
+  isVerified        Boolean   @default(false)
+  verificationCode  String?
+  verificationExpiry DateTime?
+  balance  Decimal  @default(0) @db.Decimal(10, 2)
+  resetToken        String?
+  resetExpiry       DateTime?
+  acceptedTerms     Boolean   @default(false)
+  lastLoginAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
   
+  // Relations
   verificationCodes VerificationCode[]
   passwordResets    PasswordReset[]
-  
-  @@index([email])
-  @@map("users")
+  orders Order[]
+  transactions      Transaction[] 
 }
+
+
+
 
 model VerificationCode {
   id        String   @id @default(uuid())
@@ -60,4 +73,109 @@ model PasswordReset {
 enum VerificationType {
   EMAIL_VERIFICATION
   LOGIN_VERIFICATION
+}
+
+enum OrderStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TextType {
+  ARTICLE
+  REPORT
+  COMPANY_TEXT
+  ANALYSIS
+  BLOG_POST
+  SOCIAL_MEDIA
+  EMAIL_MARKETING
+  PRODUCT_DESCRIPTION
+  OTHER
+}
+
+enum LengthUnit {
+  PAGES
+  CHARACTERS
+}
+
+model Order {
+  id            String      @id @default(uuid())
+  userId        String
+  orderNumber   String      @unique // AUTO: ORD-2025-0001
+  status        OrderStatus @default(PENDING)
+  totalPrice    Decimal     @db.Decimal(10, 2)
+  notes         String?     @db.Text
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  texts Text[]
+  transactions Transaction[]
+  
+  @@index([userId])
+  @@index([orderNumber])
+  @@map("orders")
+}
+
+model Text {
+  id            String      @id @default(uuid())
+  orderId       String
+  topic         String
+  length        Int
+  lengthUnit    LengthUnit
+  pages         Int?
+  language      String
+  textType      TextType
+  customType    String?
+  guidelines    String?     @db.Text
+  price         Decimal     @db.Decimal(10, 2)
+  content       String?     @db.Text // JSON z wszystkimi danymi
+  progress      String?
+  startTime     DateTime?
+  
+  // NOWE POLA - szczegółowe logi każdego etapu
+  queryPrompt       String?  @db.Text  // Prompt do generowania query
+  queryResponse     String?  @db.Text  // Odpowiedź Claude
+  selectPrompt      String?  @db.Text  // Prompt do wyboru źródeł
+  selectResponse    String?  @db.Text  // Odpowiedź Claude
+  structurePrompt   String?  @db.Text  // Prompt do struktury (jeśli używany)
+  structureResponse String?  @db.Text  // Odpowiedź Claude
+  writerPrompts     String?  @db.Text  // JSON array z promptami pisarzy
+  writerResponses   String?  @db.Text  // JSON array z odpowiedziami pisarzy
+  
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  @@index([orderId])
+  @@map("texts")
+}
+
+
+enum TransactionType {
+  DEPOSIT       // Doładowanie
+  ORDER_PAYMENT // Płatność za zamówienie
+  REFUND        // Zwrot
+}
+
+model Transaction {
+  id              String          @id @default(uuid())
+  userId          String
+  type            TransactionType
+  amount          Decimal         @db.Decimal(10, 2)
+  balanceBefore   Decimal         @db.Decimal(10, 2)
+  balanceAfter    Decimal         @db.Decimal(10, 2)
+  orderId         String?
+  stripeSessionId String?         @unique
+  description     String?
+  createdAt       DateTime        @default(now())
+  
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order Order? @relation(fields: [orderId], references: [id])
+  
+  @@index([userId])
+  @@index([stripeSessionId])
+  @@map("transactions")
 }

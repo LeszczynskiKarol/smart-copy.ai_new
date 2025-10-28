@@ -1,6 +1,8 @@
 // backend/src/routes/auth.routes.ts
 
 import { FastifyInstance } from "fastify";
+import { prisma } from "../lib/prisma";
+import { authenticateToken } from "../middleware/auth.middleware";
 import { AuthService } from "../services/auth.service";
 import { AppError } from "../utils/helpers";
 import {
@@ -125,41 +127,32 @@ export const authRoutes = async (fastify: FastifyInstance) => {
     }
   );
 
-  // GET /api/auth/me - test endpoint dla sprawdzenia czy użytkownik jest zalogowany
-  fastify.get("/me", async (request, reply) => {
-    try {
-      const authHeader = request.headers.authorization;
-      if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return reply.code(401).send({ error: "Brak autoryzacji" });
-      }
+  // Get current user
+  fastify.get(
+    "/me",
+    {
+      onRequest: [authenticateToken],
+    },
+    async (request, reply) => {
+      const user = request.user as { userId: string };
 
-      const token = authHeader.substring(7);
-      const { verifyAccessToken } = await import("../utils/jwt");
-      const decoded = verifyAccessToken(token);
-
-      const { PrismaClient } = await import("@prisma/client");
-      const prisma = new PrismaClient();
-
-      const user = await prisma.user.findUnique({
-        where: { id: decoded.userId },
+      const userData = await prisma.user.findUnique({
+        where: { id: user.userId },
         select: {
           id: true,
           email: true,
           firstName: true,
           lastName: true,
-          isVerified: true,
-          createdAt: true,
+          role: true,
+          balance: true,
         },
       });
 
-      if (!user) {
-        return reply.code(404).send({ error: "Użytkownik nie znaleziony" });
+      if (!userData) {
+        return reply.code(404).send({ error: "User not found" });
       }
 
-      return reply.code(200).send({ user });
-    } catch (error) {
-      console.error("Me endpoint error:", error);
-      return reply.code(401).send({ error: "Nieprawidłowy token" });
+      return userData;
     }
-  });
+  );
 };

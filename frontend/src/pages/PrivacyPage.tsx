@@ -6,22 +6,22 @@ import { motion } from "framer-motion";
 export const PrivacyPage = () => {
   return (
     <Layout>
-      <div className="min-h-screen bg-gray-50 py-12">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
           className="container-custom max-w-4xl"
         >
-          <div className="card">
-            <h1 className="text-4xl font-bold text-gray-900 mb-6">
+          <div className="card dark:bg-gray-800 dark:border-gray-700">
+            <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-6">
               Polityka prywatności
             </h1>
-            <p className="text-gray-600 mb-8">
+            <p className="text-gray-600 dark:text-gray-400 mb-8">
               Ostatnia aktualizacja: {new Date().toLocaleDateString("pl-PL")}
             </p>
 
-            <div className="prose prose-lg max-w-none">
+            <div className="prose prose-lg dark:prose-invert max-w-none">
               <h2>1. Informacje ogólne</h2>
               <p>
                 Niniejsza Polityka prywatności określa zasady przetwarzania i

@@ -6,6 +6,7 @@ export interface User {
   lastName?: string;
   isVerified: boolean;
   createdAt: string;
+  role: "USER" | "ADMIN";
 }
 
 export interface AuthResponse {

@@ -100,7 +100,7 @@ export const ForgotPasswordForm = () => {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
             Zapomniałeś hasła?
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 dark:text-gray-300">
             Nie martw się, wyślemy Ci link do resetowania
           </p>
         </div>
@@ -143,7 +143,7 @@ export const ForgotPasswordForm = () => {
           </button>
         </form>
 
-        <div className="mt-6 pt-6 border-t border-gray-200">
+        <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
           <Link
             to="/login"
             className="flex items-center gap-2 text-gray-600 hover:text-purple-600 mx-auto justify-center"

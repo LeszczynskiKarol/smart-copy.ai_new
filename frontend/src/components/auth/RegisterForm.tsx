@@ -118,7 +118,7 @@ export const RegisterForm = () => {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
             Utwórz konto
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 dark:text-gray-300">
             Rozpocznij swoją przygodę z AI już dziś
           </p>
         </div>
@@ -192,7 +192,7 @@ export const RegisterForm = () => {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-300"
               >
                 {showPassword ? (
                   <EyeOff className="w-5 h-5" />
@@ -222,7 +222,7 @@ export const RegisterForm = () => {
                     className={
                       passwordStrength.hasMinLength
                         ? "text-green-600"
-                        : "text-gray-500"
+                        : "text-gray-500 dark:text-gray-400"
                     }
                   >
                     Minimum 8 znaków
@@ -240,7 +240,7 @@ export const RegisterForm = () => {
                     className={
                       passwordStrength.hasUpperCase
                         ? "text-green-600"
-                        : "text-gray-500"
+                        : "text-gray-500 dark:text-gray-400"
                     }
                   >
                     Wielka litera
@@ -258,7 +258,7 @@ export const RegisterForm = () => {
                     className={
                       passwordStrength.hasLowerCase
                         ? "text-green-600"
-                        : "text-gray-500"
+                        : "text-gray-500 dark:text-gray-400"
                     }
                   >
                     Mała litera
@@ -276,7 +276,7 @@ export const RegisterForm = () => {
                     className={
                       passwordStrength.hasNumber
                         ? "text-green-600"
-                        : "text-gray-500"
+                        : "text-gray-500 dark:text-gray-400"
                     }
                   >
                     Cyfra
@@ -304,7 +304,7 @@ export const RegisterForm = () => {
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-300"
               >
                 {showConfirmPassword ? (
                   <EyeOff className="w-5 h-5" />
@@ -328,7 +328,7 @@ export const RegisterForm = () => {
                 type="checkbox"
                 className="w-5 h-5 mt-0.5 text-purple-600 rounded focus:ring-2 focus:ring-purple-500"
               />
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-gray-600 dark:text-gray-300">
                 Akceptuję{" "}
                 <Link to="/terms" className="text-purple-600 hover:underline">
                   regulamin

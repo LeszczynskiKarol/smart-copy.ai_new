@@ -30,3 +30,20 @@ export const authenticateToken = async (
     throw new AppError(401, "Nieprawidłowy token");
   }
 };
+
+export const authenticate = async (
+  request: FastifyRequest,
+  reply: FastifyReply
+) => {
+  try {
+    await request.jwtVerify();
+
+    const payload = request.user as { userId: string; email: string };
+    request.authUser = {
+      userId: payload.userId,
+      email: payload.email,
+    };
+  } catch (error) {
+    return reply.status(401).send({ error: "Unauthorized" });
+  }
+};

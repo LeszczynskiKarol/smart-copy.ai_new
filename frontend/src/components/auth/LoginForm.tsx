@@ -51,17 +51,24 @@ export const LoginForm = () => {
       toast.success("Zalogowano pomyślnie!");
 
       if (response.accessToken && response.refreshToken && response.user) {
-        setAuth(response.user, response.accessToken, response.refreshToken);
-      }
+        console.log("🔍 LOGIN RESPONSE:", response.user); // ← DODAJ TO
+        console.log("🔍 USER ROLE:", response.user.role); // ← DODAJ TO
 
-      navigate("/dashboard");
+        setAuth(response.user, response.accessToken, response.refreshToken);
+
+        // PRZEKIEROWANIE ADMINA
+        if (response.user.role === "ADMIN") {
+          console.log("✅ Redirecting to /admin"); // ← DODAJ TO
+          navigate("/admin");
+        } else {
+          console.log("✅ Redirecting to /dashboard"); // ← DODAJ TO
+          navigate("/dashboard");
+        }
+      }
     } catch (error: any) {
       const errorMessage = handleApiError(error);
-
-      // Sprawdź czy to błąd niezweryfikowanego emaila
       if (errorMessage.includes("nie został zweryfikowany")) {
         toast.error(errorMessage);
-        // Przekieruj do weryfikacji
         navigate("/verify", { state: { email: data.email } });
       } else {
         toast.error(errorMessage);
@@ -83,7 +90,9 @@ export const LoginForm = () => {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
             Witaj ponownie!
           </h1>
-          <p className="text-gray-600">Zaloguj się do swojego konta</p>
+          <p className="text-gray-600 dark:text-gray-300">
+            Zaloguj się do swojego konta
+          </p>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
@@ -112,7 +121,7 @@ export const LoginForm = () => {
           {/* Hasło */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Hasło
               </label>
               <Link
@@ -136,7 +145,7 @@ export const LoginForm = () => {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-300"
               >
                 {showPassword ? (
                   <EyeOff className="w-5 h-5" />

@@ -1,6 +1,6 @@
 // frontend/src/lib/api.ts
 
-import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
+import axios, { AxiosError } from "axios";
 import { config } from "@/config";
 import { useAuthStore } from "@/store/authStore";
 
@@ -13,16 +13,17 @@ export const apiClient = axios.create({
 
 // Request interceptor - dodawanie tokenu
 apiClient.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
-    const token = useAuthStore.getState().accessToken;
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
+  (config) => {
+    const authData = localStorage.getItem("smart-copy-auth");
+    if (authData) {
+      const { state } = JSON.parse(authData);
+      if (state?.accessToken) {
+        config.headers.Authorization = `Bearer ${state.accessToken}`;
+      }
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 // Response interceptor - obsługa błędów
@@ -37,10 +38,9 @@ apiClient.interceptors.response.use(
   }
 );
 
-export const handleApiError = (error: unknown): string => {
-  if (axios.isAxiosError(error)) {
-    const data = error.response?.data as { error?: string };
-    return data?.error || "Wystąpił błąd podczas komunikacji z serwerem";
+export const handleApiError = (error: any): string => {
+  if (error.response?.data?.error) {
+    return error.response.data.error;
   }
-  return "Wystąpił nieoczekiwany błąd";
+  return "Wystąpił błąd. Spróbuj ponownie.";
 };

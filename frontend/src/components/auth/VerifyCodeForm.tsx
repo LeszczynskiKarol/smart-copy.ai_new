@@ -136,7 +136,7 @@ export const VerifyCodeForm = () => {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
             Sprawdź swoją skrzynkę
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 dark:text-gray-300">
             Wysłaliśmy kod weryfikacyjny na adres:
           </p>
           <p className="text-purple-600 font-medium mt-1">{email}</p>
@@ -200,7 +200,7 @@ export const VerifyCodeForm = () => {
           </button>
         </div>
 
-        <div className="mt-6 pt-6 border-t border-gray-200">
+        <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
           <button
             onClick={() => navigate("/register")}
             className="flex items-center gap-2 text-gray-600 hover:text-purple-600 mx-auto"

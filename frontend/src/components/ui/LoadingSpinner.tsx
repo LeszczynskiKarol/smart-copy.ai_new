@@ -19,7 +19,7 @@ export const LoadingSpinner = ({ size = "md", text }: LoadingSpinnerProps) => {
       <Loader2
         className={`${sizeClasses[size]} animate-spin text-purple-600`}
       />
-      {text && <p className="text-gray-600">{text}</p>}
+      {text && <p className="text-gray-600 dark:text-gray-300">{text}</p>}
     </div>
   );
 };

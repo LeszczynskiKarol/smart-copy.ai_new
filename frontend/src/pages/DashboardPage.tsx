@@ -1,38 +1,81 @@
 // frontend/src/pages/DashboardPage.tsx
 
-import { Layout } from "@/components/layout/Layout";
+import { UserSidebar } from "@/components/layout/UserSidebar";
+import { useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
+import toast from "react-hot-toast";
 import { useAuthStore } from "@/store/authStore";
-import { Sparkles, FileText, TrendingUp, Clock } from "lucide-react";
+import { Sparkles, FileText, Package } from "lucide-react";
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { apiClient } from "@/lib/api";
 
 export const DashboardPage = () => {
   const { user } = useAuthStore();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const toastShown = useRef(false);
+
+  const { data: orders } = useQuery({
+    queryKey: ["dashboard-orders"],
+    queryFn: async () => {
+      const res = await apiClient.get("/orders");
+      return res.data;
+    },
+  });
+
+  useEffect(() => {
+    if (searchParams.get("payment") === "success" && !toastShown.current) {
+      const amount = searchParams.get("amount");
+      toast.success(
+        `✅ Doładowanie zakończone sukcesem! Dodano ${amount} zł na konto.`,
+        {
+          duration: 5000,
+          icon: "🎉",
+        }
+      );
+      toastShown.current = true;
+      setSearchParams({});
+    }
+  }, [searchParams, setSearchParams]);
+
+  const totalOrders = orders?.length || 0;
+  const totalTexts =
+    orders?.reduce((sum: number, order: any) => sum + order.texts.length, 0) ||
+    0;
+  const totalSpent =
+    orders?.reduce(
+      (sum: number, order: any) => sum + parseFloat(order.totalPrice),
+      0
+    ) || 0;
 
   const stats = [
     {
-      icon: FileText,
-      label: "Wygenerowane treści",
-      value: "0",
+      icon: Package,
+      label: "Zamówienia",
+      value: totalOrders,
       color: "from-purple-600 to-indigo-600",
     },
     {
-      icon: TrendingUp,
-      label: "Słowa tego miesiąca",
-      value: "0",
+      icon: FileText,
+      label: "Wygenerowane teksty",
+      value: totalTexts,
       color: "from-green-600 to-emerald-600",
     },
     {
-      icon: Clock,
-      label: "Zaoszczędzony czas",
-      value: "0h",
+      icon: Sparkles,
+      label: "Wydane środki",
+      value: `${totalSpent.toFixed(2)} zł`,
       color: "from-orange-600 to-red-600",
     },
   ];
 
   return (
-    <Layout>
-      <div className="min-h-screen bg-gray-50 py-12">
-        <div className="container-custom">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
+      <UserSidebar />
+
+      <div className="flex-1 p-8">
+        <div className="max-w-7xl mx-auto">
           {/* Welcome Section */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -40,14 +83,40 @@ export const DashboardPage = () => {
             transition={{ duration: 0.5 }}
             className="mb-12"
           >
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">
+            <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
               Witaj, {user?.firstName || user?.email?.split("@")[0]}! 👋
             </h1>
-            <p className="text-xl text-gray-600">
+            <p className="text-xl text-gray-600 dark:text-gray-300">
               Gotowy do tworzenia wspaniałych treści?
             </p>
           </motion.div>
-
+          {/* Quick Actions */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+            className="card dark:bg-gray-800 dark:border-gray-700 mb-12"
+          >
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+              Szybkie akcje
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Link
+                to="/orders?mode=new"
+                className="btn btn-primary flex items-center justify-center gap-2 py-4"
+              >
+                <Sparkles className="w-5 h-5" />
+                Złóż nowe zamówienie
+              </Link>
+              <Link
+                to="/orders"
+                className="btn btn-secondary flex items-center justify-center gap-2 py-4"
+              >
+                <Package className="w-5 h-5" />
+                Moje zamówienia
+              </Link>
+            </div>
+          </motion.div>
           {/* Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
             {stats.map((stat, index) => (
@@ -56,12 +125,14 @@ export const DashboardPage = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="card"
+                className="card dark:bg-gray-800 dark:border-gray-700"
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">{stat.label}</p>
-                    <p className="text-3xl font-bold text-gray-900">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                      {stat.label}
+                    </p>
+                    <p className="text-3xl font-bold text-gray-900 dark:text-white">
                       {stat.value}
                     </p>
                   </div>
@@ -75,80 +146,74 @@ export const DashboardPage = () => {
             ))}
           </div>
 
-          {/* Quick Actions */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            className="card mb-12"
-          >
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">
-              Szybkie akcje
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <button className="btn btn-primary flex items-center justify-center gap-2 py-4">
-                <Sparkles className="w-5 h-5" />
-                Nowa treść AI
-              </button>
-              <button className="btn btn-secondary flex items-center justify-center gap-2 py-4">
-                <FileText className="w-5 h-5" />
-                Moje treści
-              </button>
-              <button className="btn btn-secondary flex items-center justify-center gap-2 py-4">
-                <TrendingUp className="w-5 h-5" />
-                Statystyki
-              </button>
-            </div>
-          </motion.div>
-
-          {/* Getting Started */}
+          {/* Recent Orders */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.4 }}
-            className="card bg-gradient-to-br from-purple-50 to-indigo-50 border-purple-200"
+            className="card dark:bg-gray-800 dark:border-gray-700"
           >
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0">
-                <Sparkles className="w-6 h-6 text-white" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-xl font-bold text-gray-900 mb-2">
-                  Rozpocznij swoją podróż z AI
-                </h3>
-                <p className="text-gray-600 mb-4">
-                  Dowiedz się, jak w pełni wykorzystać Smart-Copy.ai i tworzyć
-                  niesamowite treści w kilka sekund.
-                </p>
-                <button className="btn btn-primary">Obejrzyj samouczek</button>
-              </div>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                Ostatnie zamówienia
+              </h2>
+              <Link
+                to="/orders"
+                className="text-purple-600 dark:text-purple-400 hover:underline text-sm font-medium"
+              >
+                Zobacz wszystkie
+              </Link>
             </div>
-          </motion.div>
 
-          {/* Recent Activity Placeholder */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.5 }}
-            className="card mt-12"
-          >
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">
-              Ostatnia aktywność
-            </h2>
-            <div className="text-center py-12">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <FileText className="w-8 h-8 text-gray-400" />
+            {orders && orders.length > 0 ? (
+              <div className="space-y-3">
+                {orders.slice(0, 3).map((order: any) => (
+                  <Link
+                    key={order.id}
+                    to="/orders"
+                    className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
+                        <Package className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900 dark:text-white">
+                          {order.orderNumber}
+                        </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {order.texts.length}{" "}
+                          {order.texts.length === 1 ? "tekst" : "teksty"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-purple-600 dark:text-purple-400">
+                        {parseFloat(order.totalPrice).toFixed(2)} zł
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {new Date(order.createdAt).toLocaleDateString("pl-PL")}
+                      </p>
+                    </div>
+                  </Link>
+                ))}
               </div>
-              <p className="text-gray-500">
-                Jeszcze nie utworzyłeś żadnych treści
-              </p>
-              <button className="btn btn-primary mt-4">
-                Utwórz pierwszą treść
-              </button>
-            </div>
+            ) : (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <FileText className="w-8 h-8 text-gray-400 dark:text-gray-500" />
+                </div>
+                <p className="text-gray-500 dark:text-gray-400 mb-4">
+                  Jeszcze nie masz żadnych zamówień
+                </p>
+                <Link to="/orders" className="btn btn-primary">
+                  Złóż pierwsze zamówienie
+                </Link>
+              </div>
+            )}
           </motion.div>
         </div>
       </div>
-    </Layout>
+    </div>
   );
 };
