@@ -3,10 +3,12 @@ import { FastifyInstance } from "fastify";
 import { prisma } from "../lib/prisma";
 import { authenticateToken } from "../middleware/auth.middleware";
 import { StripeService } from "../services/stripe.service";
+import { S3Service } from "../services/s3.service";
 import { processOrder } from "../services/textGenerationService";
 import { sendOrderNotificationToSlack } from "../services/slackNotificationService";
 
 const stripeService = new StripeService();
+const s3Service = new S3Service();
 
 interface CreateOrderBody {
   texts: {
@@ -17,6 +19,10 @@ interface CreateOrderBody {
     textType: string;
     customType?: string;
     guidelines?: string;
+    userSources?: {
+      urls: string[];
+      files: any[];
+    };
   }[];
 }
 
@@ -65,12 +71,49 @@ export const orderRoutes = async (fastify: FastifyInstance) => {
     return order;
   });
 
-  // Create order
-  fastify.post<{ Body: CreateOrderBody }>("/", async (request, reply) => {
+  // Create order - ZAKTUALIZOWANE z obsługą plików
+  fastify.post("/", async (request, reply) => {
     const user = request.user as { userId: string };
-    const { texts } = request.body;
 
-    if (!texts || texts.length === 0) {
+    let textsData: any[] = [];
+    let filesByTextIndex: Map<number, any[]> = new Map();
+
+    // Sprawdź Content-Type
+    const contentType = request.headers["content-type"] || "";
+
+    if (contentType.includes("multipart/form-data")) {
+      // Przetwarzanie multipart z pluginem
+      const parts = request.parts();
+
+      for await (const part of parts) {
+        if (part.type === "field" && part.fieldname === "textsData") {
+          textsData = JSON.parse(part.value as string);
+        } else if (part.type === "file") {
+          // Format: text_0_files, text_1_files, etc.
+          const match = part.fieldname.match(/text_(\d+)_files/);
+          if (match) {
+            const textIndex = parseInt(match[1]);
+            const buffer = await part.toBuffer();
+
+            if (!filesByTextIndex.has(textIndex)) {
+              filesByTextIndex.set(textIndex, []);
+            }
+
+            filesByTextIndex.get(textIndex)!.push({
+              filename: part.filename,
+              mimetype: part.mimetype,
+              buffer,
+            });
+          }
+        }
+      }
+    } else {
+      // Standardowy JSON
+      const body = request.body as CreateOrderBody;
+      textsData = body.texts;
+    }
+
+    if (!textsData || textsData.length === 0) {
       return reply.code(400).send({ error: "At least one text is required" });
     }
 
@@ -104,30 +147,70 @@ export const orderRoutes = async (fastify: FastifyInstance) => {
       orderNumber = `ORD-${currentYear}-0001`;
     }
 
-    // Calculate prices
+    // Calculate prices i przygotuj dane tekstów
     let totalPrice = 0;
-    const textsData = texts.map((text) => {
-      const characters =
-        text.lengthUnit === "PAGES" ? text.length * 2000 : text.length;
-      const pages =
-        text.lengthUnit === "PAGES"
-          ? text.length
-          : Math.ceil(text.length / 2000);
-      const price = (characters / 1000) * 3.99;
-      totalPrice += price;
+    const preparedTexts = await Promise.all(
+      textsData.map(async (text, index) => {
+        const characters =
+          text.lengthUnit === "PAGES" ? text.length * 2000 : text.length;
+        const pages =
+          text.lengthUnit === "PAGES"
+            ? text.length
+            : Math.ceil(text.length / 2000);
+        const price = (characters / 1000) * 3.99;
+        totalPrice += price;
 
-      return {
-        topic: text.topic,
-        length: characters,
-        lengthUnit: text.lengthUnit,
-        pages,
-        language: text.language,
-        textType: (text.textType || "OTHER") as any,
-        customType: text.customType,
-        guidelines: text.guidelines,
-        price,
-      };
-    });
+        // Przygotuj userSources
+        let userSourcesJson = null;
+
+        if (text.userSources || filesByTextIndex.has(index)) {
+          const urls = text.userSources?.urls || [];
+          const uploadedFiles = [];
+
+          // Upload plików do S3
+          const filesForThisText = filesByTextIndex.get(index) || [];
+          for (const file of filesForThisText) {
+            try {
+              const { s3Key, url } = await s3Service.uploadFile(
+                file.buffer,
+                file.filename,
+                file.mimetype
+              );
+
+              uploadedFiles.push({
+                name: file.filename,
+                s3Key,
+                url,
+              });
+
+              console.log(`✅ Uploaded file to S3: ${file.filename}`);
+            } catch (error) {
+              console.error(`❌ Failed to upload ${file.filename}:`, error);
+            }
+          }
+
+          if (urls.length > 0 || uploadedFiles.length > 0) {
+            userSourcesJson = JSON.stringify({
+              urls,
+              files: uploadedFiles,
+            });
+          }
+        }
+
+        return {
+          topic: text.topic,
+          length: characters,
+          lengthUnit: text.lengthUnit,
+          pages,
+          language: text.language,
+          textType: (text.textType || "OTHER") as any,
+          customType: text.customType,
+          guidelines: text.guidelines,
+          price,
+          userSources: userSourcesJson,
+        };
+      })
+    );
 
     const currentBalance = parseFloat(userWithBalance.balance.toString());
 
@@ -143,7 +226,7 @@ export const orderRoutes = async (fastify: FastifyInstance) => {
           totalPrice,
           status: "PENDING",
           texts: {
-            create: textsData,
+            create: preparedTexts,
           },
         },
         include: {
@@ -179,7 +262,7 @@ export const orderRoutes = async (fastify: FastifyInstance) => {
         totalPrice,
         status: "IN_PROGRESS",
         texts: {
-          create: textsData,
+          create: preparedTexts,
         },
       },
       include: {

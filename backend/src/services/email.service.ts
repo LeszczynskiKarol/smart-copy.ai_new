@@ -5,7 +5,7 @@ import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 
 const AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID;
 const AWS_SECRET_ACCESS_KEY = process.env.AWS_SECRET_ACCESS_KEY;
-const AWS_REGION = process.env.AWS_REGION || "eu-north-1";
+const AWS_REGION_MAIL = process.env.AWS_REGION_MAIL || "us-east-1";
 const EMAIL_FROM = process.env.EMAIL_FROM || "noreply@smart-copy.ai";
 const EMAIL_FROM_NAME = process.env.EMAIL_FROM_NAME || "Smart-Copy.ai";
 const FRONTEND_URL =
@@ -13,7 +13,7 @@ const FRONTEND_URL =
 
 // SES Client
 const sesClient = new SESv2Client({
-  region: AWS_REGION,
+  region: AWS_REGION_MAIL,
   credentials: {
     accessKeyId: AWS_ACCESS_KEY_ID!,
     secretAccessKey: AWS_SECRET_ACCESS_KEY!,

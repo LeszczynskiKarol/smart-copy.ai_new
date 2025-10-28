@@ -17,6 +17,7 @@ import {
   CheckCircle,
   XCircle,
   FileText,
+  ArrowRight,
   Calendar,
   Plus,
 } from "lucide-react";
@@ -268,9 +269,12 @@ export const OrdersPage = () => {
                   <div className="flex items-start justify-between mb-6">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                        <button
+                          onClick={() => navigate(`/orders/${order.id}`)}
+                          className="text-xl font-bold text-gray-900 dark:text-white hover:text-purple-600 dark:hover:text-purple-400 transition-colors text-left"
+                        >
                           {getOrderTitle(order)}
-                        </h3>
+                        </button>
                         <StatusBadge status={order.status} />
                       </div>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
@@ -302,32 +306,6 @@ export const OrdersPage = () => {
                     </div>
                   </div>
 
-                  {/* Texts Preview */}
-                  <div className="border-t mb-4 border-gray-200 dark:border-gray-700 pt-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {order.texts.slice(0, 2).map((text) => (
-                        <div
-                          key={text.id}
-                          className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
-                        >
-                          <p className="font-semibold text-gray-900 dark:text-white text-sm mb-1">
-                            {text.topic}
-                          </p>
-                          <p className="text-xs text-gray-600 dark:text-gray-400">
-                            {text.pages} str. • {text.length.toLocaleString()}{" "}
-                            znaków • {text.language.toUpperCase()}
-                          </p>
-                        </div>
-                      ))}
-                      {order.texts.length > 2 && (
-                        <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg flex items-center justify-center">
-                          <p className="text-sm font-medium text-purple-600 dark:text-purple-400">
-                            + {order.texts.length - 2} więcej
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
                   {/* Progress bars for IN_PROGRESS orders */}
                   {order.status === "IN_PROGRESS" && (
                     <div className="mt-4 space-y-3">
@@ -346,14 +324,17 @@ export const OrdersPage = () => {
                     </div>
                   )}
 
-                  {order.status === "COMPLETED" ? (
-                    <button
-                      onClick={() => navigate(`/orders/${order.id}`)}
-                      className="btn btn-primary text-sm mb-2 w-80"
-                    >
-                      Otwórz zamówienie
-                    </button>
-                  ) : null}
+                  {order.status === "COMPLETED" && (
+                    <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                      <button
+                        onClick={() => navigate(`/orders/${order.id}`)}
+                        className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors flex items-center gap-2 text-sm font-medium"
+                      >
+                        Zobacz szczegóły
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
                 </motion.div>
               ))}
             </div>

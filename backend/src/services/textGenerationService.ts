@@ -48,7 +48,7 @@ async function sendOrderCompletedEmail(
     );
 
     const sesClient = new SESv2Client({
-      region: process.env.AWS_REGION || "eu-north-1",
+      region: process.env.AWS_REGION_MAIL || "us-east-1",
       credentials: {
         accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -173,7 +173,7 @@ export async function searchGoogle(query: string, language: string) {
   const allItems: any[] = [];
 
   for (let start = 1; start <= 11; start += 10) {
-    if (allItems.length >= 15) break;
+    if (allItems.length >= 10) break;
 
     try {
       const response = await axios.get(
@@ -288,23 +288,27 @@ Bez żadnego dodatkowego tekstu!`;
   return selectedNumbers.map((num) => searchResults[num - 1]);
 }
 
-// KROK 4: Scrapowanie URL-i
-async function scrapeUrls(urls: string[]) {
+// KROK 4: Scrapowanie URL-i - ZAKTUALIZOWANA WERSJA Z DOKŁADNYM LOGOWANIEM
+async function scrapeUrls(urls: string[], isUserSource: boolean = false) {
   const SCRAPER_URL =
     process.env.SCRAPER_URL ||
     "http://scraper-najnowszy-env.eba-8usajxuv.eu-north-1.elasticbeanstalk.com";
-
   const results = [];
-  const MAX_TOTAL_LENGTH = 150000;
+  const MAX_TOTAL_LENGTH = isUserSource ? 200000 : 150000;
   let currentTotalLength = 0;
 
   for (let i = 0; i < urls.length; i++) {
     const url = urls[i];
-
     try {
       console.log(
-        `🕷️ Scrapuję [${i + 1}/${urls.length}]: ${url.substring(0, 60)}...`
+        `🕷️ Scrapuję ${isUserSource ? "[USER SOURCE]" : ""} [${i + 1}/${
+          urls.length
+        }]: ${url.substring(0, 60)}...`
       );
+
+      // 🔹 DODANE: Logowanie requestu
+      console.log(`📤 Wysyłam POST do: ${SCRAPER_URL}/scrape`);
+      console.log(`📤 Payload: ${JSON.stringify({ url })}`);
 
       const response = await axios.post(
         `${SCRAPER_URL}/scrape`,
@@ -315,16 +319,37 @@ async function scrapeUrls(urls: string[]) {
         }
       );
 
+      // 🔹 DODANE: Logowanie pełnej odpowiedzi
+      console.log(`📥 Status: ${response.status}`);
+      console.log(
+        `📥 Response data keys: ${Object.keys(response.data).join(", ")}`
+      );
+      console.log(
+        `📥 Response.data.text length: ${response.data.text?.length || 0}`
+      );
+
+      // 🔹 DODANE: Pokaż pierwsze 500 znaków
+      if (response.data.text) {
+        console.log(
+          `📥 Pierwsze 500 znaków:\n${response.data.text.substring(0, 500)}`
+        );
+      }
+
+      // 🔹 DODANE: Pokaż cały response jeśli krótki (< 200 znaków)
+      if (response.data.text && response.data.text.length < 200) {
+        console.log(
+          `⚠️ UWAGA: Bardzo krótka odpowiedź!\n📥 Cała odpowiedź:\n${response.data.text}`
+        );
+      }
+
       if (response.status === 200 && response.data.text) {
         let scrapedText = response.data.text;
         const originalLength = scrapedText.length;
 
-        // OBLICZ LIMIT DLA TEGO ŹRÓDŁA
         const remainingSources = urls.length - i;
         const remainingSpace = MAX_TOTAL_LENGTH - currentTotalLength;
         const maxForThisSource = Math.floor(remainingSpace / remainingSources);
 
-        // PRZYTNIJ JEŚLI ZA DŁUGIE
         if (scrapedText.length > maxForThisSource) {
           scrapedText = scrapedText.substring(0, maxForThisSource);
           console.log(
@@ -340,29 +365,51 @@ async function scrapeUrls(urls: string[]) {
           length: scrapedText.length,
           originalLength,
           status: "success",
+          isUserSource,
         });
 
         console.log(
           `  ✅ Zescrapowano ${scrapedText.length} znaków (łącznie: ${currentTotalLength})`
         );
       } else {
+        // 🔹 DODANE: Lepsze logowanie błędów
+        console.error(`  ❌ Invalid response - status: ${response.status}`);
+        console.error(`  ❌ Response data: ${JSON.stringify(response.data)}`);
         throw new Error("Invalid scraper response");
       }
 
       await new Promise((resolve) => setTimeout(resolve, 2000));
     } catch (error: any) {
+      // 🔹 DODANE: Szczegółowe logowanie błędów
       console.error(`  ❌ Błąd scrapowania: ${error.message}`);
+
+      if (error.response) {
+        console.error(`  ❌ Response status: ${error.response.status}`);
+        console.error(
+          `  ❌ Response data: ${JSON.stringify(error.response.data)}`
+        );
+      }
+
+      if (error.code === "ECONNABORTED") {
+        console.error(`  ❌ Timeout - scraper nie odpowiedział w 30s`);
+      }
+
       results.push({
         url,
         text: "",
         length: 0,
         status: "failed",
         error: error.message,
+        isUserSource,
       });
     }
   }
 
-  console.log(`\n📊 PODSUMOWANIE SCRAPOWANIA:`);
+  console.log(
+    `\n📊 PODSUMOWANIE SCRAPOWANIA ${
+      isUserSource ? "[USER SOURCES]" : "[GOOGLE]"
+    }:`
+  );
   console.log(
     `  Zescrapowano: ${results.filter((r) => r.status === "success").length}/${
       urls.length
@@ -372,10 +419,21 @@ async function scrapeUrls(urls: string[]) {
     `  Łączna długość: ${currentTotalLength} / ${MAX_TOTAL_LENGTH} znaków`
   );
 
+  // 🔹 DODANE: Wyświetl szczegóły każdego źródła
+  console.log(`\n📋 SZCZEGÓŁY KAŻDEGO ŹRÓDŁA:`);
+  results.forEach((r, idx) => {
+    console.log(`\n  [${idx + 1}] ${r.url}`);
+    console.log(`      Status: ${r.status}`);
+    console.log(`      Długość: ${r.length} znaków`);
+    if (r.status === "success" && r.length < 500) {
+      console.log(`      ⚠️ Zescrapowano mało! Treść:\n      ${r.text}`);
+    }
+  });
+
   return results;
 }
 
-// KROK 5: Przetwarzanie całego zamówienia
+// KROK 5: Przetwarzanie całego zamówienia - ZAKTUALIZOWANE
 export async function processOrder(orderId: string) {
   const { PrismaClient } = await import("@prisma/client");
   const prisma = new PrismaClient();
@@ -386,9 +444,7 @@ export async function processOrder(orderId: string) {
       include: { texts: true },
     });
 
-    if (!order) {
-      throw new Error("Zamówienie nie znalezione");
-    }
+    if (!order) throw new Error("Zamówienie nie znalezione");
 
     console.log(
       `\n🚀 ROZPOCZYNAM PRZETWARZANIE ZAMÓWIENIA ${order.orderNumber}`
@@ -400,34 +456,157 @@ export async function processOrder(orderId: string) {
       console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
       try {
-        // ETAP 1: Claude generuje zapytanie
-        console.log("🔹 ETAP 1: Generowanie zapytania Google");
-        await updateTextProgress(text.id, "query");
-        const googleQuery = await generateGoogleQuery(text);
-        console.log(`✅ Zapytanie: "${googleQuery}"\n`);
+        // ═══ ŹRÓDŁA UŻYTKOWNIKA (bez zmian) ═══
+        let userSourcesData: any = null;
+        let userSourcesScrapeResults: any[] = [];
+        let userSourcesTotalLength = 0;
 
-        // ETAP 2: Wyszukiwanie w Google
-        console.log("🔹 ETAP 2: Wyszukiwanie w Google");
-        await updateTextProgress(text.id, "search");
-        const searchResults = await searchGoogle(googleQuery, text.language);
-        console.log(`✅ Znaleziono ${searchResults.totalResults} wyników\n`);
+        if (text.userSources) {
+          try {
+            userSourcesData = JSON.parse(text.userSources);
+            console.log("🔹 ŹRÓDŁA UŻYTKOWNIKA:");
+            console.log(`  URLs: ${userSourcesData.urls?.length || 0}`);
+            console.log(`  Pliki: ${userSourcesData.files?.length || 0}`);
 
-        // ETAP 3: Claude wybiera najlepsze źródła
-        console.log("🔹 ETAP 3: Claude wybiera najlepsze źródła");
-        await updateTextProgress(text.id, "select");
-        const selectedSources = await selectBestSources(
-          text,
-          searchResults.items
+            if (userSourcesData.urls && userSourcesData.urls.length > 0) {
+              console.log("\n🔸 Scrapowanie URL-i użytkownika...");
+              await updateTextProgress(text.id, "user-sources-urls");
+              const urlResults = await scrapeUrls(userSourcesData.urls, true);
+              userSourcesScrapeResults.push(...urlResults);
+              userSourcesTotalLength = urlResults
+                .filter((r: any) => r.status === "success")
+                .reduce((sum: number, r: any) => sum + r.length, 0);
+            }
+
+            if (userSourcesData.files && userSourcesData.files.length > 0) {
+              console.log("\n🔸 Scrapowanie plików użytkownika...");
+              await updateTextProgress(text.id, "user-sources-files");
+              const fileUrls = userSourcesData.files.map((f: any) => f.url);
+              const fileResults = await scrapeUrls(fileUrls, true);
+              userSourcesScrapeResults.push(...fileResults);
+              const filesLength = fileResults
+                .filter((r: any) => r.status === "success")
+                .reduce((sum: number, r: any) => sum + r.length, 0);
+              userSourcesTotalLength += filesLength;
+            }
+
+            console.log(
+              `\n📊 ŁĄCZNA DŁUGOŚĆ ŹRÓDEŁ UŻYTKOWNIKA: ${userSourcesTotalLength} znaków\n`
+            );
+          } catch (error) {
+            console.error("⚠️ Błąd przetwarzania źródeł użytkownika:", error);
+          }
+        }
+
+        // ═══ GOOGLE SOURCES - NOWA KOLEJNOŚĆ ═══
+        const USE_GOOGLE = userSourcesTotalLength < 200000;
+        let googleQuery = "";
+        let searchResults: any = { items: [], totalResults: 0 };
+        let allGoogleScraped: any[] = [];
+        let selectedGoogleSources: any[] = [];
+
+        if (USE_GOOGLE) {
+          // ETAP 1: Generowanie zapytania
+          console.log("🔹 ETAP 1: Generowanie zapytania Google");
+          await updateTextProgress(text.id, "query");
+          googleQuery = await generateGoogleQuery(text);
+          console.log(`✅ Zapytanie: "${googleQuery}"\n`);
+
+          // ETAP 2: Wyszukiwanie
+          console.log("🔹 ETAP 2: Wyszukiwanie w Google");
+          await updateTextProgress(text.id, "search");
+          searchResults = await searchGoogle(googleQuery, text.language);
+          console.log(`✅ Znaleziono ${searchResults.totalResults} wyników\n`);
+
+          // ✨ NOWY ETAP 3: SCRAPUJ WSZYSTKIE 10-20 ŹRÓDEŁ
+          console.log("🔹 ETAP 3: Scrapowanie WSZYSTKICH źródeł z Google");
+          await updateTextProgress(text.id, "scraping-all");
+
+          const allUrls = searchResults.items.map((item: any) => item.link);
+          allGoogleScraped = await scrapeUrls(allUrls, false);
+
+          // Filtruj tylko poprawne (> 500 znaków, bez błędów)
+          const validScraped = allGoogleScraped.filter(
+            (r: any) =>
+              r.status === "success" &&
+              r.length > 500 &&
+              !r.text.includes("403 Client Error") &&
+              !r.text.includes("SSL Error")
+          );
+
+          console.log(
+            `✅ Poprawnie zescrapowano: ${validScraped.length}/${allGoogleScraped.length}\n`
+          );
+
+          // ✨ NOWY ETAP 4: CLAUDE WYBIERA (na podstawie TREŚCI)
+          console.log(
+            "🔹 ETAP 4: Claude wybiera najlepsze źródła (na podstawie zescrapowanych treści)"
+          );
+          await updateTextProgress(text.id, "selecting");
+
+          if (validScraped.length > 0) {
+            selectedGoogleSources = await selectBestSourcesFromScraped(
+              text,
+              validScraped
+            );
+            console.log(
+              `✅ Wybrano ${selectedGoogleSources.length} źródeł do pisania\n`
+            );
+          } else {
+            console.warn(
+              "⚠️ Brak poprawnych źródeł z Google - tylko źródła użytkownika\n"
+            );
+          }
+        } else {
+          console.log(
+            "✅ Źródła użytkownika w pełni wykorzystane (200,000 znaków)"
+          );
+          console.log(
+            "ℹ️  Pomijam wyszukiwanie Google - źródła użytkownika wystarczają\n"
+          );
+        }
+
+        // ═══ POŁĄCZ WYBRANE ŹRÓDŁA ═══
+        const allScrapedResults = [
+          ...userSourcesScrapeResults.filter(
+            (r: any) => r.status === "success"
+          ),
+          ...selectedGoogleSources,
+        ];
+
+        // 🔹 DODAJ WERYFIKACJĘ
+        const userSourcesCount = allScrapedResults.filter(
+          (r: any) => r.isUserSource
+        ).length;
+        const userSourcesLength = allScrapedResults
+          .filter((r: any) => r.isUserSource)
+          .reduce((sum: number, r: any) => sum + r.length, 0);
+
+        console.log("📊 FINALNE ŹRÓDŁA DO GENEROWANIA TREŚCI:");
+        console.log(
+          `  ✅ Źródła użytkownika: ${userSourcesCount} (${userSourcesLength.toLocaleString()} znaków)`
         );
-        const selectedUrls = selectedSources.map((s: any) => s.link);
-        console.log(`✅ Wybrano ${selectedUrls.length} źródeł\n`);
+        console.log(
+          `  ✅ Źródła z Google: ${
+            selectedGoogleSources.length
+          } (${selectedGoogleSources
+            .reduce((sum: number, s: any) => sum + s.length, 0)
+            .toLocaleString()} znaków)`
+        );
+        console.log(
+          `  ✅ RAZEM: ${allScrapedResults.length} źródeł (${allScrapedResults
+            .reduce((sum: number, r: any) => sum + r.length, 0)
+            .toLocaleString()} znaków)\n`
+        );
 
-        // ETAP 4: Zapoznawanie się ze źródłami
-        console.log("🔹 ETAP 4: Zapoznawanie się ze źródłami");
-        await updateTextProgress(text.id, "reading");
-        const scrapedResults = await scrapeUrls(selectedUrls);
+        // Upewnij się że mamy źródła
+        if (allScrapedResults.length === 0) {
+          throw new Error(
+            "❌ KRYTYCZNY BŁĄD: Brak źródeł do generowania treści!"
+          );
+        }
 
-        // ZAPISZ WSZYSTKO W BAZIE
+        // ZAPISZ W BAZIE
         const contentData = {
           googleQuery,
           allSearchResults: searchResults.items.map((item: any) => ({
@@ -435,56 +614,57 @@ export async function processOrder(orderId: string) {
             link: item.link,
             snippet: item.snippet,
           })),
-          selectedSources: selectedSources.map((s: any) => ({
-            title: s.title,
-            link: s.link,
+          allGoogleScraped: allGoogleScraped.map((r: any) => ({
+            url: r.url,
+            length: r.length,
+            status: r.status,
           })),
-          scrapedContent: scrapedResults.map((r) => ({
+          selectedGoogleSources: selectedGoogleSources.map((s: any) => ({
+            url: s.url,
+            length: s.length,
+          })),
+          userSources: userSourcesData || null,
+          userSourcesScraped: userSourcesScrapeResults.map((r) => ({
+            url: r.url,
+            length: r.length,
+            status: r.status,
+          })),
+          scrapedContent: allScrapedResults.map((r) => ({
             url: r.url,
             length: r.length,
             text: r.text,
             status: r.status,
+            isUserSource: r.isUserSource || false,
           })),
         };
 
         await prisma.text.update({
           where: { id: text.id },
-          data: {
-            content: JSON.stringify(contentData, null, 2),
-          },
+          data: { content: JSON.stringify(contentData, null, 2) },
         });
 
-        console.log(`\n✅ Tekst "${text.topic}" przetworzony pomyślnie!\n`);
+        console.log(`\n✅ Tekst "${text.topic}" przetworzony!\n`);
 
         // GENEROWANIE TREŚCI
         console.log(`🎨 Rozpoczynam generowanie treści...`);
         await updateTextProgress(text.id, "writing");
         await generateContent(text.id);
 
-        // Oznacz jako zakończone
         await updateTextProgress(text.id, "completed");
       } catch (error: any) {
-        console.error(
-          `\n❌ Błąd przetwarzania tekstu ${text.id}:`,
-          error.message
-        );
+        console.error(`\n❌ Błąd: ${text.id}:`, error.message);
         await updateTextProgress(text.id, "error");
       }
     }
 
-    console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-    console.log(`✅ ZAMÓWIENIE ${order.orderNumber} PRZETWORZONE!`);
+    console.log(`\n✅ ZAMÓWIENIE ${order.orderNumber} PRZETWORZONE!`);
 
-    // ZMIEŃ STATUS NA COMPLETED
     await prisma.order.update({
       where: { id: orderId },
       data: { status: "COMPLETED" },
     });
 
-    console.log(`Status: COMPLETED`);
-    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
-
-    // WYŚLIJ EMAIL
+    // Email...
     try {
       const user = await prisma.user.findUnique({
         where: { id: order.userId },
@@ -496,13 +676,10 @@ export async function processOrder(orderId: string) {
         });
       }
     } catch (emailError) {
-      console.error("⚠️ Błąd wysyłki emaila:", emailError);
+      console.error("⚠️ Błąd emaila:", emailError);
     }
 
     return { success: true, orderId };
-  } catch (error: any) {
-    console.error(`❌ BŁĄD PRZETWARZANIA ZAMÓWIENIA ${orderId}:`, error);
-    throw error;
   } finally {
     await prisma.$disconnect();
   }
@@ -515,13 +692,73 @@ export async function processOrder(orderId: string) {
 // Wyciągnij źródła z Text.content
 function extractSourcesFromText(text: any): string {
   try {
-    if (!text.content) return "";
+    if (!text.content) {
+      console.error("⚠️ text.content jest puste!");
+      return "";
+    }
+
     const data = JSON.parse(text.content);
-    return data.scrapedContent
-      .filter((s: any) => s.status === "success")
+
+    if (!data.scrapedContent || data.scrapedContent.length === 0) {
+      console.error("⚠️ data.scrapedContent jest puste!");
+      return "";
+    }
+
+    console.log(
+      `\n🔍 Ekstrakcja źródeł z text.content (${data.scrapedContent.length} źródeł)...`
+    );
+
+    // PRIORYTET: najpierw źródła użytkownika, potem Google
+    const userSourcesArray = (data.scrapedContent || []).filter(
+      (s: any) => s.status === "success" && s.isUserSource === true
+    );
+
+    const googleSourcesArray = (data.scrapedContent || []).filter(
+      (s: any) => s.status === "success" && s.isUserSource !== true
+    );
+
+    console.log(`  ✅ Źródła użytkownika: ${userSourcesArray.length}`);
+    console.log(`  ✅ Źródła z Google: ${googleSourcesArray.length}`);
+
+    const userSources = userSourcesArray
       .map((s: any) => s.text)
       .join("\n\n━━━━━━━━━━━━━━━━━━\n\n");
+
+    const googleSources = googleSourcesArray
+      .map((s: any) => s.text)
+      .join("\n\n━━━━━━━━━━━━━━━━━━\n\n");
+
+    if (userSourcesArray.length > 0) {
+      console.log(
+        `  📊 Łączna długość źródeł użytkownika: ${userSources.length.toLocaleString()} znaków`
+      );
+    }
+    if (googleSourcesArray.length > 0) {
+      console.log(
+        `  📊 Łączna długość źródeł Google: ${googleSources.length.toLocaleString()} znaków`
+      );
+    }
+
+    // Połącz z oznaczeniem
+    let combined = "";
+    if (userSources) {
+      combined +=
+        "═══ ŹRÓDŁA PRIORYTETOWE (WSKAZANE PRZEZ UŻYTKOWNIKA) ═══\n\n";
+      combined += userSources;
+    }
+    if (googleSources) {
+      if (combined) combined += "\n\n";
+      combined += "═══ ŹRÓDŁA DODATKOWE (Z GOOGLE) ═══\n\n";
+      combined += googleSources;
+    }
+
+    if (!combined) {
+      console.error("❌ KRYTYCZNY BŁĄD: Brak źródeł do zwrócenia!");
+    }
+
+    return combined;
   } catch (error) {
+    console.error("❌ Błąd w extractSourcesFromText:", error);
     return "";
   }
 }
@@ -532,7 +769,12 @@ async function generateShortContent(
   sources: string
 ): Promise<string> {
   const includeIntro = text.length >= 5000;
+
+  // Sprawdź czy są źródła użytkownika
+  const hasUserSources = sources.includes("ŹRÓDŁA PRIORYTETOWE");
+
   const prompt = `Jesteś profesjonalnym copywriterem. Twoim zadaniem jest napisanie oryginalnego tekstu WYŁĄCZNIE W FORMACIE HTML.
+
 KRYTYCZNE ZASADY FORMATOWANIA HTML:
 1. Pisz TYLKO czysty HTML - bez tagów <!DOCTYPE>, <html>, <head>, <body>
 2. Rozpocznij od: <h1>Tytuł Tekstu</h1>
@@ -553,6 +795,17 @@ ZASADY TREŚCI:
 3. ZAKAZ kopiowania z własnych poprzednich odpowiedzi
 4. Bądź oryginalny, wartościowy, ciekawy
 5. Pisz poprawnie gramatycznie
+${
+  hasUserSources
+    ? `
+⚠️ KRYTYCZNE: PRIORYTET DLA ŹRÓDEŁ WSKAZANYCH PRZEZ UŻYTKOWNIKA
+- Użytkownik wskazał konkretne materiały źródłowe
+- MUSISZ wykorzystać informacje z tych źródeł w PIERWSZEJ KOLEJNOŚCI
+- To są materiały priorytetowe - bazuj na nich głównie
+- Źródła dodatkowe (Google) są tylko uzupełnieniem
+`
+    : ""
+}
 
 TEMAT: ${text.topic}
 RODZAJ: ${text.textType}
@@ -565,7 +818,13 @@ ${
 }
 WYTYCZNE: ${text.guidelines || "brak"}
 
-ŹRÓDŁA DO WYKORZYSTANIA:
+${hasUserSources ? "═════════════════════════════════════" : ""}
+${
+  hasUserSources
+    ? "MATERIAŁY ŹRÓDŁOWE (UŻYTKOWNIK + GOOGLE):"
+    : "ŹRÓDŁA DO WYKORZYSTANIA:"
+}
+${hasUserSources ? "═════════════════════════════════════" : ""}
 ${sources}
 
 NAPISZ ORYGINALNY TEKST W CZYSTYM HTML (zaczynając od <h1>, kończąc na </p>):`;
@@ -577,14 +836,12 @@ NAPISZ ORYGINALNY TEKST W CZYSTYM HTML (zaczynając od <h1>, kończąc na </p>):
     messages: [{ role: "user", content: prompt }],
   });
 
-  // <<<< ZAMIEŃ STARY RETURN NA NOWY KOD >>>>
   const response =
     message.content[0].type === "text" ? message.content[0].text : "";
 
   // ZAPISZ PROMPTY I ODPOWIEDZI
   const { PrismaClient } = await import("@prisma/client");
   const prisma = new PrismaClient();
-
   const existingText = await prisma.text.findUnique({ where: { id: text.id } });
   const existingWriterPrompts = existingText?.writerPrompts
     ? JSON.parse(existingText.writerPrompts)
@@ -611,7 +868,7 @@ NAPISZ ORYGINALNY TEKST W CZYSTYM HTML (zaczynając od <h1>, kończąc na </p>):
 // >= 10 000 znaków - Kierownik określa strukturę
 async function generateStructure(text: any): Promise<string> {
   const includeIntro = text.length >= 5000;
-
+  // Sprawdź czy są źródła użytkownika
   const prompt = `Jesteś kierownikiem projektu content. Określ strukturę i spis treści dla tekstu W FORMACIE HTML.
 
 TEMAT: ${text.topic}
@@ -694,6 +951,8 @@ ${
 }`
     : "";
   const includeIntro = text.length >= 5000;
+  const hasUserSources = sources.includes("ŹRÓDŁA PRIORYTETOWE");
+
   const prompt = `Jesteś profesjonalnym copywriterem. ${partInfo}
 KRYTYCZNE ZASADY FORMATOWANIA HTML:
 1. Pisz TYLKO czysty HTML - bez tagów <!DOCTYPE>, <html>, <head>, <body>
@@ -726,6 +985,17 @@ ZASADY TREŚCI:
 4. Bądź oryginalny, wartościowy, ciekawy
 5. Ścisłe trzymanie się struktury HTML
 ${
+  hasUserSources
+    ? `
+⚠️ KRYTYCZNE: PRIORYTET DLA ŹRÓDEŁ WSKAZANYCH PRZEZ UŻYTKOWNIKA
+- Użytkownik wskazał konkretne materiały źródłowe
+- MUSISZ wykorzystać informacje z tych źródeł w PIERWSZEJ KOLEJNOŚCI
+- To są materiały priorytetowe - bazuj na nich głównie
+- Źródła dodatkowe (Google) są tylko uzupełnieniem
+`
+    : ""
+}
+${
   part
     ? `6. ${
         part.previousContent
@@ -738,7 +1008,9 @@ ${
 STRUKTURA HTML DO REALIZACJI:
 ${structure}
 
-ŹRÓDŁA:
+${hasUserSources ? "═════════════════════════════════════" : ""}
+${hasUserSources ? "MATERIAŁY ŹRÓDŁOWE (UŻYTKOWNIK + GOOGLE):" : "ŹRÓDŁA:"}
+${hasUserSources ? "═════════════════════════════════════" : ""}
 ${sources.substring(0, 50000)}
 
 ${
@@ -804,6 +1076,49 @@ export async function generateContent(textId: string) {
 
     const sources = extractSourcesFromText(text);
     if (!sources) throw new Error("Brak źródeł");
+
+    const contentData = JSON.parse(text.content || "{}");
+    const userSourcesArray = (contentData.scrapedContent || []).filter(
+      (s: any) => s.status === "success" && s.isUserSource === true
+    );
+    const googleSourcesArray = (contentData.scrapedContent || []).filter(
+      (s: any) => s.status === "success" && s.isUserSource !== true
+    );
+
+    const actualUserSourcesLength = userSourcesArray.reduce(
+      (sum: number, s: any) => sum + (s.text?.length || 0),
+      0
+    );
+    const actualGoogleSourcesLength = googleSourcesArray.reduce(
+      (sum: number, s: any) => sum + (s.text?.length || 0),
+      0
+    );
+
+    console.log("\n🔍 WERYFIKACJA ŹRÓDEŁ:");
+    const hasUserSources = userSourcesArray.length > 0;
+    const hasGoogleSources = googleSourcesArray.length > 0;
+
+    console.log(
+      `  ${hasUserSources ? "✅" : "❌"} Źródła użytkownika: ${
+        hasUserSources
+          ? `TAK (${
+              userSourcesArray.length
+            } źródeł, ${actualUserSourcesLength.toLocaleString()} znaków)`
+          : "NIE"
+      }`
+    );
+    console.log(
+      `  ${hasGoogleSources ? "✅" : "ℹ️ "} Źródła z Google: ${
+        hasGoogleSources
+          ? `TAK (${
+              googleSourcesArray.length
+            } źródeł, ${actualGoogleSourcesLength.toLocaleString()} znaków)`
+          : "NIE (pominięte)"
+      }`
+    );
+    console.log(
+      `  📊 Całkowita długość źródeł: ${sources.length.toLocaleString()} znaków\n`
+    );
 
     let finalContent = "";
 
@@ -919,4 +1234,102 @@ async function savePromptAndResponse(
   } finally {
     await prisma.$disconnect();
   }
+}
+
+async function selectBestSourcesFromScraped(
+  text: any,
+  scrapedResults: Array<{
+    url: string;
+    text: string;
+    length: number;
+  }>
+) {
+  // Przygotuj preview (pierwsze 20k znaków każdego źródła)
+  const sourcePreviews = scrapedResults
+    .map((result, index) => {
+      const preview = result.text.substring(0, 20000);
+      return `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ŹRÓDŁO ${index + 1}:
+URL: ${result.url}
+Całkowita długość: ${result.length} znaków
+FRAGMENT (pierwsze 20,000 znaków):
+${preview}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+`;
+    })
+    .join("\n\n");
+
+  const prompt = `Jesteś ekspertem od oceny jakości źródeł internetowych.
+
+ZADANIE: Przeczytaj fragmenty ${scrapedResults.length} zescrapowanych źródeł i wybierz 3-8 NAJLEPSZYCH do napisania tekstu.
+
+TEMAT: ${text.topic}
+RODZAJ: ${text.textType}
+JĘZYK: ${text.language}
+
+KRYTERIA WYBORU:
+1. Merytoryczność i rzetelność treści
+2. Zgodność z tematem
+3. Aktualność informacji
+4. Poziom szczegółowości
+5. Brak treści reklamowych/sprzedażowych
+6. ⚠️ POMIŃ źródła z błędami lub bardzo krótkie (< 500 znaków)
+
+ZASADY:
+- Wybierz minimum 3, maksimum 8 źródeł
+- Im więcej dobrych źródeł, tym lepiej
+- Preferuj różnorodność perspektyw
+- IGNORUJ źródła zawierające "403 Error", "SSL Error", itp.
+
+ZESCRAPOWANE ŹRÓDŁA:
+${sourcePreviews}
+
+ODPOWIEDŹ:
+Zwróć TYLKO numery wybranych źródeł oddzielone przecinkami (np: 1,3,5,7)
+Bez żadnego dodatkowego tekstu!`;
+
+  const message = await anthropic.messages.create({
+    model: "claude-3-haiku-20240307",
+    max_tokens: 150,
+    temperature: 0.3,
+    messages: [{ role: "user", content: prompt }],
+  });
+
+  const response =
+    message.content[0].type === "text" ? message.content[0].text.trim() : "";
+
+  // ZAPISZ
+  const { PrismaClient } = await import("@prisma/client");
+  const prisma = new PrismaClient();
+  await prisma.text.update({
+    where: { id: text.id },
+    data: { selectPrompt: prompt, selectResponse: response },
+  });
+  await prisma.$disconnect();
+
+  const selectedNumbers = response
+    .split(",")
+    .map((n) => parseInt(n.trim()))
+    .filter((n) => !isNaN(n) && n > 0 && n <= scrapedResults.length);
+
+  if (selectedNumbers.length === 0) {
+    console.warn("⚠️ Claude nie wybrał źródeł, wybieram 3 najdłuższe");
+    // Fallback: 3 najdłuższe (> 1000 znaków)
+    const validSources = scrapedResults
+      .map((r, idx) => ({ idx: idx + 1, length: r.length }))
+      .filter((r) => r.length > 1000)
+      .sort((a, b) => b.length - a.length)
+      .slice(0, 3)
+      .map((r) => r.idx);
+
+    selectedNumbers.push(...validSources);
+  }
+
+  console.log(
+    `✅ Claude wybrał ${selectedNumbers.length} źródeł: ${selectedNumbers.join(
+      ", "
+    )}`
+  );
+  return selectedNumbers.map((num) => scrapedResults[num - 1]);
 }

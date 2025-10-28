@@ -131,6 +131,7 @@ model Text {
   guidelines    String?     @db.Text
   price         Decimal     @db.Decimal(10, 2)
   content       String?     @db.Text // JSON z wszystkimi danymi
+  userSources   String?     @db.Text  // JSON: {urls: string[], files: {name, s3Key, url}[]}
   progress      String?
   startTime     DateTime?
   
