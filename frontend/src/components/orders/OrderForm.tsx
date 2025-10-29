@@ -12,25 +12,22 @@ import {
   Check,
   ArrowRight,
   Calculator,
-  Sparkles,
   AlertCircle,
   Link as LinkIcon,
   Upload,
   X,
   Info,
+  Package,
+  Edit2,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { apiClient } from "@/lib/api";
 import { TEXT_TYPES, LANGUAGES, type LengthUnit } from "@/types/order";
 
 const ORDER_DRAFT_KEY = "smart-copy-order-draft";
+const MAX_TEXTS_PER_ORDER = 50; // ← NOWY LIMIT
 
-// Helper do zapisywania
-const saveOrderDraft = (data: {
-  mode: "single" | "multiple";
-  currentForm: any;
-  texts: any[];
-}) => {
+const saveOrderDraft = (data: { currentForm: any; texts: any[] }) => {
   try {
     localStorage.setItem(ORDER_DRAFT_KEY, JSON.stringify(data));
   } catch (error) {
@@ -38,7 +35,6 @@ const saveOrderDraft = (data: {
   }
 };
 
-// Helper do czyszczenia
 const clearOrderDraft = () => {
   try {
     localStorage.removeItem(ORDER_DRAFT_KEY);
@@ -47,7 +43,6 @@ const clearOrderDraft = () => {
   }
 };
 
-// SCHEMA Z LEPSZĄ WALIDACJĄ
 const textSchema = z
   .object({
     topic: z.string().min(3, "Temat musi mieć minimum 3 znaki"),
@@ -66,15 +61,41 @@ const textSchema = z
   })
   .refine(
     (data) => {
-      // Sprawdź minimum dla znaków
       if (data.lengthUnit === "CHARACTERS" && data.length < 2000) {
+        return false;
+      }
+      // ✅ NOWY LIMIT: MAX 300,000 znaków
+      if (data.lengthUnit === "CHARACTERS" && data.length > 300000) {
+        return false;
+      }
+      // ✅ NOWY LIMIT: MAX 150 stron
+      if (data.lengthUnit === "PAGES" && data.length > 150) {
         return false;
       }
       return true;
     },
-    {
-      message: "Minimalna liczba znaków to 2000",
-      path: ["length"],
+    (data) => {
+      if (data.lengthUnit === "CHARACTERS") {
+        if (data.length < 2000) {
+          return {
+            message: "Minimalna liczba znaków to 2000",
+            path: ["length"],
+          };
+        }
+        if (data.length > 300000) {
+          return {
+            message: "Maksymalna liczba znaków to 300,000",
+            path: ["length"],
+          };
+        }
+      }
+      if (data.lengthUnit === "PAGES" && data.length > 150) {
+        return {
+          message: "Maksymalna liczba stron to 150",
+          path: ["length"],
+        };
+      }
+      return { message: "", path: [] };
     }
   );
 
@@ -82,9 +103,9 @@ type TextFormValues = z.infer<typeof textSchema>;
 
 export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
   const [, setSearchParams] = useSearchParams();
-  const [mode, setMode] = useState<"single" | "multiple" | null>(null);
   const [texts, setTexts] = useState<TextFormValues[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
   // MODAL ŹRÓDEŁ
   const [showSourcesModal, setShowSourcesModal] = useState(false);
@@ -113,105 +134,78 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
     },
   });
 
-  // ← DODAJ TEN useEffect NA SAMYM POCZĄTKU:
+  // PRZYWRACANIE DRAFTU
   useEffect(() => {
-    // Sprawdź czy mamy draft w localStorage
     const draft = localStorage.getItem(ORDER_DRAFT_KEY);
     if (draft) {
-      // ← DODAJ: Sprawdź URL - jeśli SUCCESS, nie przywracaj drafta!
       const urlParams = new URLSearchParams(window.location.search);
       const payment = urlParams.get("payment");
 
-      // Jeśli płatność sukces - wyczyść draft i NIE przywracaj
       if (payment === "success") {
         clearOrderDraft();
-        return; // ← EXIT
+        return;
       }
 
-      // Tylko dla CANCELLED przywracamy draft
       if (payment === "cancelled") {
         try {
           const parsedDraft = JSON.parse(draft);
-
-          // Przywróć mode
-          if (parsedDraft.mode) {
-            setMode(parsedDraft.mode);
-          }
-
-          // Przywróć texts
           if (parsedDraft.texts) {
             setTexts(parsedDraft.texts);
           }
-
-          // Przywróć formularz
           if (parsedDraft.currentForm) {
             reset(parsedDraft.currentForm);
           }
-
-          // Pokaż toast
           toast.error("Płatność anulowana. Przywrócono formularz zamówienia.", {
             duration: 5000,
           });
-
-          // Wyczyść draft
           clearOrderDraft();
-
-          // Wyczyść URL params
           setSearchParams({});
         } catch (error) {
           console.error("Failed to restore draft:", error);
-          clearOrderDraft(); // Wyczyść zepsuty draft
+          clearOrderDraft();
         }
       }
     }
-  }, []); // Tylko raz na mount
+  }, []);
 
+  const watchedTopic = watch("topic", ""); // ← DODAJ
   const watchedLength = watch("length", 1);
   const watchedUnit = watch("lengthUnit", "PAGES");
   const watchedTextType = watch("textType", "");
 
+  // ✅ SPRAWDŹ CZY FORMULARZ WYPEŁNIONY (min 3 znaki w temacie)
+  const isFormFilled = watchedTopic && watchedTopic.trim().length >= 3;
+
   const normalizeUrl = (url: string): string => {
-    let normalized = url.trim();
-
-    // Usuń slash z końca
-    normalized = normalized.replace(/\/$/, "");
-
-    // Dodaj https:// jeśli brak protokołu
+    let normalized = url.trim().replace(/\/$/, "");
     if (
       !normalized.startsWith("http://") &&
       !normalized.startsWith("https://")
     ) {
       normalized = "https://" + normalized;
     }
-
     return normalized;
   };
 
-  // Sprawdź czy URL już istnieje
   const isDuplicateUrl = (url: string): boolean => {
     return urls.some(
       (existing) => existing.toLowerCase() === url.toLowerCase()
     );
   };
 
-  // Sprawdź czy plik już istnieje (po nazwie)
   const isDuplicateFile = (file: File): boolean => {
     return files.some((existing) => existing.name === file.name);
   };
 
-  // KONWERSJA PRZY ZMIANIE JEDNOSTKI
   const handleUnitChange = (newUnit: LengthUnit) => {
     const currentLength = watchedLength;
     const currentUnit = watchedUnit;
-
     if (currentUnit === newUnit) return;
 
     let newLength;
     if (newUnit === "PAGES") {
-      // Z znaków na strony
       newLength = Math.max(1, Math.ceil(currentLength / 2000));
     } else {
-      // Ze stron na znaki
       newLength = Math.max(2000, currentLength * 2000);
     }
 
@@ -219,7 +213,6 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
     setValue("lengthUnit", newUnit);
   };
 
-  // Live calculation
   const calculateCharacters = (length: number, unit: LengthUnit): number => {
     return unit === "PAGES" ? length * 2000 : length;
   };
@@ -236,34 +229,28 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
   const pages = calculatePages(watchedLength, watchedUnit);
   const currentPrice = calculatePrice(characters);
 
-  const totalTexts = mode === "multiple" ? texts.length : 1;
-  const totalPrice =
-    mode === "multiple"
-      ? texts.reduce((sum, text) => {
-          const chars = calculateCharacters(text.length, text.lengthUnit);
-          return sum + calculatePrice(chars);
-        }, 0)
-      : currentPrice;
+  // ✅ SUMA TEKSTÓW NA LIŚCIE
+  const totalTextsPrice = texts.reduce((sum, text) => {
+    const chars = calculateCharacters(text.length, text.lengthUnit);
+    return sum + calculatePrice(chars);
+  }, 0);
 
-  // DODAWANIE URL
+  // ✅ SUMA CAŁKOWITA - dodaj currentPrice TYLKO jeśli formularz wypełniony
+  const totalPrice = totalTextsPrice + (isFormFilled ? currentPrice : 0);
+
   const handleAddUrl = () => {
     const trimmedUrl = urlInput.trim();
     if (!trimmedUrl) return;
 
-    // ✅ Sprawdź limit
     if (urls.length + files.length >= 6) {
       toast.error("Maksymalnie 6 źródeł łącznie");
       return;
     }
 
     try {
-      // ✅ Normalizuj URL
       const normalizedUrl = normalizeUrl(trimmedUrl);
-
-      // ✅ Waliduj URL
       new URL(normalizedUrl);
 
-      // ✅ Sprawdź duplikaty
       if (isDuplicateUrl(normalizedUrl)) {
         toast.error("Ten adres już został dodany");
         return;
@@ -277,23 +264,16 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
     }
   };
 
-  // USUWANIE URL (z głównego formularza i modala)
   const handleRemoveUrl = (index: number) => {
     const newUrls = urls.filter((_, i) => i !== index);
     setUrls(newUrls);
-
-    // Zaktualizuj formularz
     const currentSources = watch("userSources") || { urls: [], files: [] };
     setValue("userSources", { ...currentSources, urls: newUrls });
-
     toast.success("Link usunięty");
   };
 
-  // DODAWANIE PLIKÓW
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
-
-    // ✅ Sprawdź limit PRZED dodaniem
     const remainingSlots = 6 - urls.length - files.length;
 
     if (selectedFiles.length > remainingSlots) {
@@ -301,7 +281,7 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
         remainingSlots > 0
           ? `Możesz dodać maksymalnie ${remainingSlots} więcej ${
               remainingSlots === 1 ? "plik" : "plików"
-            } (limit: 6 źródeł)`
+            }`
           : "Osiągnięto limit 6 źródeł"
       );
       return;
@@ -312,31 +292,24 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
       "application/msword",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ];
-
     const validFiles: File[] = [];
-    const maxSize = 50 * 1024 * 1024; // 10MB
+    const maxSize = 50 * 1024 * 1024;
 
     for (const file of selectedFiles) {
-      // ✅ Sprawdź duplikaty
       if (isDuplicateFile(file)) {
         toast.error(`${file.name}: Plik już został dodany`);
         continue;
       }
-
-      // Sprawdź typ
       if (!allowedTypes.includes(file.type)) {
         toast.error(
           `${file.name}: Nieobsługiwany format (tylko PDF, DOC, DOCX)`
         );
         continue;
       }
-
-      // Sprawdź rozmiar
       if (file.size > maxSize) {
         toast.error(`${file.name}: Plik zbyt duży (max 50MB)`);
         continue;
       }
-
       validFiles.push(file);
     }
 
@@ -349,35 +322,24 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
       );
     }
 
-    // Reset input
     e.target.value = "";
   };
 
-  // USUWANIE PLIKÓW (z głównego formularza i modala)
   const handleRemoveFile = (index: number) => {
     const newFiles = files.filter((_, i) => i !== index);
     setFiles(newFiles);
-
-    // Zaktualizuj formularz
     const currentSources = watch("userSources") || { urls: [], files: [] };
     setValue("userSources", { ...currentSources, files: newFiles });
-
     toast.success("Plik usunięty");
   };
 
-  // ZATWIERDZENIE ŹRÓDEŁ (zamknięcie modala)
   const handleSaveUserSources = () => {
-    // ✅ AUTOMATYCZNIE DODAJ URL Z INPUTA (jeśli jest)
     let finalUrls = [...urls];
-
     if (urlInput.trim()) {
       try {
         const normalizedUrl = normalizeUrl(urlInput.trim());
-        new URL(normalizedUrl); // Walidacja
-
-        // Sprawdź limit
+        new URL(normalizedUrl);
         if (finalUrls.length + files.length < 6) {
-          // Sprawdź duplikaty
           if (
             !finalUrls.some(
               (existing) =>
@@ -385,7 +347,6 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
             )
           ) {
             finalUrls.push(normalizedUrl);
-            toast.success("Link dodany automatycznie", { icon: "✨" });
           }
         } else {
           toast.error(
@@ -393,12 +354,10 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
           );
         }
       } catch {
-        // Jeśli URL nieprawidłowy, pokaż ostrzeżenie ale nie blokuj zapisu
         toast.error("Nieprawidłowy link - nie został dodany");
       }
     }
 
-    // Zapisz do formularza
     setValue("userSources", { urls: finalUrls, files });
     setUrls(finalUrls);
     setUrlInput("");
@@ -413,19 +372,17 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
     }
   };
 
-  // OTWARCIE MODALA - załaduj bieżące źródła
   const handleOpenSourcesModal = () => {
     const currentSources = watch("userSources");
     if (currentSources) {
       setUrls(currentSources.urls || []);
       setFiles(currentSources.files || []);
     }
-    setUrlInput(""); // ✅ Wyczyść input
+    setUrlInput("");
     setShowSourcesModal(true);
   };
 
   const handleCancelSources = () => {
-    // ✅ Przywróć wartości z formularza (cofnij zmiany)
     const currentSources = watch("userSources");
     if (currentSources) {
       setUrls(currentSources.urls || []);
@@ -438,13 +395,46 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
     setShowSourcesModal(false);
   };
 
-  const handleAddText = async () => {
-    const data = watch();
+  const handleEditText = (index: number) => {
+    const textToEdit = texts[index];
 
-    // WALIDACJA Z POKAZYWANIEM BŁĘDÓW
+    reset({
+      topic: textToEdit.topic,
+      length: textToEdit.length,
+      lengthUnit: textToEdit.lengthUnit,
+      language: textToEdit.language,
+      textType: textToEdit.textType || "",
+      customType: textToEdit.customType || "",
+      guidelines: textToEdit.guidelines || "",
+      userSources: textToEdit.userSources || { urls: [], files: [] },
+    });
+
+    if (textToEdit.userSources) {
+      setUrls(textToEdit.userSources.urls || []);
+      setFiles(textToEdit.userSources.files || []);
+    }
+
+    setEditingIndex(index);
+    toast(`Edytujesz: ${textToEdit.topic}`, { icon: "✏️" });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleAddText = async () => {
+    // ✅ SPRAWDŹ LIMIT 50 TEKSTÓW
+    if (texts.length >= MAX_TEXTS_PER_ORDER && editingIndex === null) {
+      toast.error(
+        `Maksymalnie ${MAX_TEXTS_PER_ORDER} tekstów w jednym zamówieniu`,
+        {
+          duration: 4000,
+        }
+      );
+      return;
+    }
+
+    const data = watch();
     const isValid = await trigger();
+
     if (!isValid) {
-      // Pokaż pierwszy błąd
       if (errors.topic) {
         toast.error(errors.topic.message || "Podaj temat");
       } else if (errors.length) {
@@ -457,7 +447,17 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
       return;
     }
 
-    setTexts([...texts, data]);
+    if (editingIndex !== null) {
+      const updatedTexts = [...texts];
+      updatedTexts[editingIndex] = data;
+      setTexts(updatedTexts);
+      setEditingIndex(null);
+      toast.success("Tekst zaktualizowany", { icon: "✅" });
+    } else {
+      setTexts([...texts, data]);
+      toast.success("Tekst dodany do zamówienia");
+    }
+
     reset({
       topic: "",
       length: 1,
@@ -468,103 +468,73 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
       guidelines: "",
       userSources: { urls: [], files: [] },
     });
-    // Reset źródeł
+
     setUrls([]);
     setFiles([]);
-    toast.success("Tekst dodany do zamówienia");
+  };
+
+  const handleCancelEdit = () => {
+    setEditingIndex(null);
+    reset({
+      topic: "",
+      length: 1,
+      lengthUnit: "PAGES",
+      language: "pl",
+      textType: "",
+      customType: "",
+      guidelines: "",
+      userSources: { urls: [], files: [] },
+    });
+    setUrls([]);
+    setFiles([]);
+    toast("Anulowano edycję");
   };
 
   const handleRemoveText = (index: number) => {
+    if (editingIndex === index) {
+      handleCancelEdit();
+    } else if (editingIndex !== null && index < editingIndex) {
+      setEditingIndex(editingIndex - 1);
+    }
+
     setTexts(texts.filter((_, i) => i !== index));
     toast.success("Tekst usunięty");
   };
 
   const handleSubmit = async () => {
-    // W trybie MULTIPLE - jeśli są teksty, nie waliduj formularza
-    if (mode === "multiple" && texts.length > 0) {
-      // Użyj tylko dodanych tekstów bez walidacji formularza
-      const orderTexts = texts;
-
-      // ← ZAPISZ DRAFT PRZED SUBMITEM
-      saveOrderDraft({
-        mode: mode!,
-        currentForm: watch(),
-        texts: texts,
-      });
-
-      setIsSubmitting(true);
-
-      try {
-        // Przygotuj FormData dla plików
-        const formData = new FormData();
-        formData.append("textsData", JSON.stringify(orderTexts));
-
-        // Dodaj pliki
-        orderTexts.forEach((text, textIndex) => {
-          text.userSources?.files?.forEach((file: File) => {
-            formData.append(`text_${textIndex}_files`, file);
-          });
-        });
-
-        await apiClient.post("/orders", formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-
-        // Sukces - wyczyść draft
-        clearOrderDraft();
-        toast.success("Zamówienie złożone pomyślnie!");
-        reset();
-        setTexts([]);
-        setUrls([]);
-        setFiles([]);
-        setMode(null);
-        onSuccess?.();
-      } catch (error: any) {
-        if (error.response?.status === 402) {
-          const data = error.response.data;
-          toast.error(data.message);
-          if (data.stripeUrl) {
-            window.location.href = data.stripeUrl;
-          }
-        } else {
-          clearOrderDraft();
-          const errorMessage =
-            error.response?.data?.error || "Błąd podczas składania zamówienia";
-          toast.error(errorMessage);
-        }
-      } finally {
-        setIsSubmitting(false);
-      }
-      return; // <<<< EXIT
-    }
-
-    // W SINGLE lub MULTIPLE bez tekstów - waliduj formularz
     const data = watch();
+    const isFormFilled = data.topic && data.topic.trim().length >= 3;
 
-    const isValid = await trigger();
-    if (!isValid) {
-      if (errors.topic) {
-        toast.error(errors.topic.message || "Podaj temat");
-      } else if (errors.length) {
-        toast.error(errors.length.message || "Nieprawidłowa długość");
-      } else if (errors.language) {
-        toast.error(errors.language.message || "Wybierz język");
-      } else {
-        toast.error("Uzupełnij wszystkie wymagane pola");
+    let orderTexts = [...texts];
+
+    if (isFormFilled) {
+      const isValid = await trigger();
+
+      if (!isValid) {
+        if (errors.topic) {
+          toast.error(errors.topic.message || "Podaj temat");
+        } else if (errors.length) {
+          toast.error(errors.length.message || "Nieprawidłowa długość");
+        } else if (errors.language) {
+          toast.error(errors.language.message || "Wybierz język");
+        } else {
+          toast.error("Uzupełnij wszystkie wymagane pola aktualnego tekstu");
+        }
+        return;
       }
-      return;
-    }
 
-    const orderTexts = mode === "multiple" ? texts : [data];
+      orderTexts.push(data);
+      console.log(`✅ Dodano aktualny formularz do zamówienia`);
+    }
 
     if (orderTexts.length === 0) {
-      toast.error("Dodaj przynajmniej jeden tekst");
+      toast.error("Wypełnij formularz lub dodaj teksty do listy");
       return;
     }
 
-    // ← ZAPISZ DRAFT PRZED SUBMITEM
+    console.log(`📦 Wysyłam ${orderTexts.length} tekstów do backendu`);
+
     saveOrderDraft({
-      mode: mode!,
       currentForm: data,
       texts: texts,
     });
@@ -572,11 +542,9 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
     setIsSubmitting(true);
 
     try {
-      // Przygotuj FormData
       const formData = new FormData();
       formData.append("textsData", JSON.stringify(orderTexts));
 
-      // Dodaj pliki
       orderTexts.forEach((text, textIndex) => {
         text.userSources?.files?.forEach((file: File) => {
           formData.append(`text_${textIndex}_files`, file);
@@ -587,14 +555,13 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      // Sukces - wyczyść draft
       clearOrderDraft();
       toast.success("Zamówienie złożone pomyślnie!");
       reset();
       setTexts([]);
       setUrls([]);
       setFiles([]);
-      setMode(null);
+      setEditingIndex(null);
       onSuccess?.();
     } catch (error: any) {
       if (error.response?.status === 402) {
@@ -614,117 +581,83 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
     }
   };
 
-  if (mode === null) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="max-w-4xl mx-auto"
-      >
-        <div className="text-center mb-12">
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            className="w-16 h-16 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6"
-          >
-            <Sparkles className="w-8 h-8 text-white" />
-          </motion.div>
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">
-            Złóż zamówienie na treści AI
-          </h2>
-          <p className="text-lg text-gray-600 dark:text-gray-300">
-            Wybierz, ile tekstów chcesz zamówić
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => setMode("single")}
-            className="card hover:shadow-2xl transition-all p-8 bg-white dark:bg-gray-800 cursor-pointer border-2 border-transparent hover:border-purple-500 dark:hover:border-purple-400 flex flex-col items-center text-center"
-          >
-            <FileText className="w-12 h-12 text-purple-600 dark:text-purple-400 mb-4" />
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              Jeden tekst
-            </h3>
-            <p className="text-gray-600 dark:text-gray-300">
-              Idealne dla pojedynczego artykułu, raportu lub innej treści
-            </p>
-          </motion.button>
-
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => setMode("multiple")}
-            className="card hover:shadow-2xl bg-white dark:bg-gray-800 transition-all p-8 cursor-pointer border-2 border-transparent hover:border-purple-500 dark:hover:border-purple-400 flex flex-col items-center text-center"
-          >
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <FileText className="w-12 h-12 text-purple-600 dark:text-purple-400" />
-              <Plus className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              Wiele tekstów
-            </h3>
-            <p className="text-gray-600 dark:text-gray-300">
-              Zamów kilka różnych tekstów w jednym zamówieniu
-            </p>
-          </motion.button>
-        </div>
-      </motion.div>
-    );
-  }
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="max-w-5xl mx-auto"
+      className="max-w-7xl mx-auto"
     >
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            {mode === "single" ? "Zamów jeden tekst" : "Zamów wiele tekstów"}
-          </h2>
-          <p className="text-gray-600 dark:text-gray-300">
-            Uzupełnij szczegóły swojego zamówienia
-          </p>
-        </div>
-        <button
-          onClick={() => {
-            setMode(null);
-            setTexts([]);
-            setUrls([]);
-            setFiles([]);
-            reset();
-          }}
-          className="btn btn-secondary bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-        >
-          Zmień tryb
-        </button>
+      <div className="text-center mb-12">
+        <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-3">
+          Złóż zamówienie
+        </h2>
       </div>
 
-      {/* Lista dodanych tekstów (multi mode) */}
-      {mode === "multiple" && texts.length > 0 && (
+      {/* BANNER TRYBU EDYCJI */}
+      {editingIndex !== null && (
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="card dark:bg-gray-800 dark:border-gray-700 mb-6"
+          className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-300 dark:border-blue-700 rounded-lg"
         >
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <Check className="w-5 h-5 text-green-500" />
-            Dodane teksty ({texts.length})
-          </h3>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Edit2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <div>
+                <p className="font-semibold text-blue-900 dark:text-blue-100">
+                  Tryb edycji aktywny
+                </p>
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  Edytujesz tekst #{editingIndex + 1}:{" "}
+                  {texts[editingIndex]?.topic}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleCancelEdit}
+              className="btn btn-secondary text-sm"
+            >
+              Anuluj edycję
+            </button>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Lista dodanych tekstów */}
+      {texts.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="card dark:bg-gray-800 dark:border-gray-700 mb-8"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              <Package className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+              Teksty w zamówieniu ({texts.length})
+            </h3>
+            <span className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+              {totalTextsPrice.toFixed(2)} zł
+            </span>
+          </div>
           <div className="space-y-3">
             {texts.map((text, index) => (
               <div
                 key={index}
-                className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg"
+                className={`flex items-center justify-between p-4 rounded-lg transition-all ${
+                  editingIndex === index
+                    ? "bg-blue-100 dark:bg-blue-900/30 border-2 border-blue-500 dark:border-blue-600"
+                    : "bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600"
+                }`}
               >
                 <div className="flex-1">
-                  <p className="font-semibold text-gray-900 dark:text-white">
-                    {text.topic}
+                  <p className="font-semibold text-gray-900 dark:text-white mb-1">
+                    {index + 1}. {text.topic}
+                    {editingIndex === index && (
+                      <span className="ml-2 text-xs bg-blue-500 text-white px-2 py-1 rounded">
+                        Edytujesz
+                      </span>
+                    )}
                   </p>
                   <p className="text-sm text-gray-600 dark:text-gray-300">
                     {calculatePages(text.length, text.lengthUnit)} str. •{" "}
@@ -749,7 +682,7 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
                       )}
                   </p>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
                   <span className="font-bold text-purple-600 dark:text-purple-400">
                     {calculatePrice(
                       calculateCharacters(text.length, text.lengthUnit)
@@ -757,8 +690,17 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
                     zł
                   </span>
                   <button
+                    onClick={() => handleEditText(index)}
+                    disabled={editingIndex !== null && editingIndex !== index}
+                    className="p-2 text-blue-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Edytuj tekst"
+                  >
+                    <Edit2 className="w-5 h-5" />
+                  </button>
+                  <button
                     onClick={() => handleRemoveText(index)}
                     className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                    title="Usuń tekst"
                   >
                     <Trash2 className="w-5 h-5" />
                   </button>
@@ -769,9 +711,9 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
         </motion.div>
       )}
 
-      {/* Formularz */}
+      {/* Formularz + Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left - Form */}
+        {/* Left - Form (bez zmian) */}
         <div className="lg:col-span-2 space-y-6">
           {/* Temat */}
           <motion.div
@@ -808,8 +750,6 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
             <label className="block text-sm font-bold text-gray-900 dark:text-white mb-3">
               Długość tekstu *
             </label>
-
-            {/* Toggle jednostki Z AUTOMATYCZNĄ KONWERSJĄ */}
             <div className="flex gap-2 mb-4">
               <button
                 type="button"
@@ -834,25 +774,22 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
                 Znaki
               </button>
             </div>
-
             <input
               {...register("length", { valueAsNumber: true })}
               type="number"
               min={watchedUnit === "PAGES" ? 1 : 2000}
+              max={watchedUnit === "PAGES" ? 150 : 300000} // ✅ NOWE LIMITY
               step={watchedUnit === "PAGES" ? 1 : 1000}
               className={`input w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white mb-3 ${
                 errors.length ? "border-red-500" : ""
               }`}
             />
-
             {errors.length && (
               <p className="text-red-500 text-sm mb-3 flex items-center gap-1">
                 <AlertCircle className="w-4 h-4" />
                 {errors.length.message}
               </p>
             )}
-
-            {/* Live conversion */}
             <div className="flex items-center gap-4 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
               <Calculator className="w-5 h-5 text-purple-600 dark:text-purple-400" />
               <div className="text-sm">
@@ -877,7 +814,7 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
             transition={{ delay: 0.2 }}
             className="card dark:bg-gray-800 dark:border-gray-700"
           >
-            <label className="block text-sm font-bold text-gray-900 dark:text-white mb-3 ">
+            <label className="block text-sm font-bold text-gray-900 dark:text-white mb-3">
               Język tekstu *
             </label>
             <select
@@ -897,14 +834,14 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.3 }}
-            className="card dark:bg-gray-800 dark:border-gray-700 text-gray-900 dark:text-white"
+            className="card dark:bg-gray-800 dark:border-gray-700"
           >
-            <label className="block text-sm font-bold text-gray-900 dark:text-white mb-3 ">
+            <label className="block text-sm font-bold text-gray-900 dark:text-white mb-3">
               Rodzaj tekstu (opcjonalnie)
             </label>
             <select
               {...register("textType")}
-              className="input w-full mb-3 bg-white dark:bg-gray-800"
+              className="input w-full mb-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
             >
               <option value="">Wybierz rodzaj</option>
               {Object.entries(TEXT_TYPES).map(([key, label]) => (
@@ -913,8 +850,6 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
                 </option>
               ))}
             </select>
-
-            {/* Custom type field */}
             <AnimatePresence>
               {watchedTextType === "OTHER" && (
                 <motion.input
@@ -924,13 +859,13 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
                   {...register("customType")}
                   type="text"
                   placeholder="Wpisz własny rodzaj tekstu"
-                  className="input w-full"
+                  className="input w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                 />
               )}
             </AnimatePresence>
           </motion.div>
 
-          {/* WŁASNE ŹRÓDŁA - NOWA SEKCJA */}
+          {/* WŁASNE ŹRÓDŁA */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -953,8 +888,6 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
                 </div>
               </div>
             </div>
-
-            {/* Przycisk dodawania */}
             <button
               type="button"
               onClick={handleOpenSourcesModal}
@@ -966,14 +899,13 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
                 : "Dodaj źródła"}
             </button>
 
-            {/* 🎯 PODGLĄD DODANYCH ŹRÓDEŁ W GŁÓWNYM FORMULARZU */}
+            {/* PODGLĄD ŹRÓDEŁ */}
             {(urls.length > 0 || files.length > 0) && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 className="space-y-2"
               >
-                {/* Linki */}
                 {urls.map((url, index) => (
                   <motion.div
                     key={`url-${index}`}
@@ -995,14 +927,11 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
                       type="button"
                       onClick={() => handleRemoveUrl(index)}
                       className="p-1.5 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors flex-shrink-0"
-                      title="Usuń link"
                     >
                       <X className="w-4 h-4" />
                     </button>
                   </motion.div>
                 ))}
-
-                {/* Pliki */}
                 {files.map((file, index) => (
                   <motion.div
                     key={`file-${index}`}
@@ -1027,7 +956,6 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
                       type="button"
                       onClick={() => handleRemoveFile(index)}
                       className="p-1.5 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors flex-shrink-0"
-                      title="Usuń plik"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -1056,7 +984,6 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
           </motion.div>
         </div>
 
-        {/* Right - Summary */}
         <div className="lg:col-span-1">
           <div className="sticky top-6">
             <motion.div
@@ -1069,44 +996,81 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
               </h3>
 
               <div className="space-y-3 mb-6">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-300">
-                    Liczba tekstów:
-                  </span>
-                  <span className="font-semibold text-gray-900 dark:text-white">
-                    {totalTexts}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-300">
-                    Aktualna długość:
-                  </span>
-                  <span className="font-semibold text-gray-900 dark:text-white">
-                    {pages} str.
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-300">
-                    Znaki:
-                  </span>
-                  <span className="font-semibold text-gray-900 dark:text-white">
-                    {characters.toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-300">
-                    Cena za 1000 znaków:
-                  </span>
-                  <span className="font-semibold text-gray-900 dark:text-white">
-                    3.99 zł
-                  </span>
-                </div>
+                {/* Teksty na liście */}
+                {texts.length > 0 && (
+                  <div className="pb-3 border-b border-purple-200 dark:border-purple-700">
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-gray-600 dark:text-gray-300">
+                        Teksty w zamówieniu:
+                      </span>
+                      <span className="font-semibold text-gray-900 dark:text-white">
+                        {texts.length}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600 dark:text-gray-300">
+                        Suma tekstów:
+                      </span>
+                      <span className="font-bold text-purple-600 dark:text-purple-400">
+                        {totalTextsPrice.toFixed(2)} zł
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* ✅ AKTUALNY FORMULARZ - TYLKO JEŚLI WYPEŁNIONY */}
+                {isFormFilled && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">
+                      {editingIndex !== null
+                        ? "Edytowany tekst:"
+                        : texts.length > 0
+                        ? "Aktualny tekst:"
+                        : "Aktualny tekst:"}
+                    </p>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600 dark:text-gray-300">
+                        Długość:
+                      </span>
+                      <span className="font-semibold text-gray-900 dark:text-white">
+                        {pages} str.
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600 dark:text-gray-300">
+                        Znaki:
+                      </span>
+                      <span className="font-semibold text-gray-900 dark:text-white">
+                        {characters.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600 dark:text-gray-300">
+                        Cena:
+                      </span>
+                      <span className="font-semibold text-gray-900 dark:text-white">
+                        {currentPrice.toFixed(2)} zł
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* ✅ INFO jeśli formularz pusty */}
+                {!isFormFilled && texts.length > 0 && (
+                  <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <p className="text-xs text-gray-600 dark:text-gray-400 text-center">
+                      💡 Wypełnij formularz aby dodać kolejny tekst
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="border-t border-purple-200 dark:border-purple-800 pt-4 mb-6">
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-bold text-gray-900 dark:text-white">
-                    Suma:
+                    {texts.length > 0 || isFormFilled
+                      ? "Suma całkowita:"
+                      : "Do zapłaty:"}
                   </span>
                   <span className="text-3xl font-bold text-purple-600 dark:text-purple-400">
                     {totalPrice.toFixed(2)} zł
@@ -1114,14 +1078,42 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
                 </div>
               </div>
 
-              {mode === "multiple" && (
+              {/* Przyciski */}
+              <button
+                type="button"
+                onClick={handleAddText}
+                disabled={
+                  texts.length >= MAX_TEXTS_PER_ORDER && editingIndex === null
+                }
+                className={`btn w-full mb-3 flex items-center justify-center gap-2 ${
+                  editingIndex !== null
+                    ? "btn-primary bg-blue-600 hover:bg-blue-700"
+                    : "btn-secondary"
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                {editingIndex !== null ? (
+                  <>
+                    <Check className="w-5 h-5" />
+                    Zaktualizuj tekst
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-5 h-5" />
+                    {texts.length >= MAX_TEXTS_PER_ORDER
+                      ? `Limit ${MAX_TEXTS_PER_ORDER} tekstów`
+                      : "Dodaj kolejny tekst"}
+                  </>
+                )}
+              </button>
+
+              {editingIndex !== null && (
                 <button
                   type="button"
-                  onClick={handleAddText}
+                  onClick={handleCancelEdit}
                   className="btn btn-secondary w-full mb-3 flex items-center justify-center gap-2"
                 >
-                  <Plus className="w-5 h-5" />
-                  Dodaj tekst
+                  <X className="w-5 h-5" />
+                  Anuluj edycję
                 </button>
               )}
 
@@ -1129,7 +1121,7 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
                 type="button"
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className="btn btn-primary w-full flex items-center justify-center gap-2"
+                className="btn btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {isSubmitting ? (
                   "Przetwarzanie..."
@@ -1142,14 +1134,28 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
               </button>
 
               <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-4">
-                Po złożeniu zamówienia skontaktujemy się z Tobą w ciągu 24h
+                {editingIndex !== null
+                  ? "Zaktualizuj lub anuluj edycję"
+                  : texts.length > 0
+                  ? isFormFilled
+                    ? `${texts.length} tekstów + aktualny formularz`
+                    : `${texts.length} ${
+                        texts.length === 1
+                          ? "tekst"
+                          : texts.length < 5
+                          ? "teksty"
+                          : "tekstów"
+                      } w zamówieniu`
+                  : isFormFilled
+                  ? "Dodaj do listy lub złóż zamówienie"
+                  : "Wypełnij formularz aby rozpocząć"}
               </p>
             </motion.div>
           </div>
         </div>
       </div>
 
-      {/* MODAL ŹRÓDEŁ */}
+      {/* MODAL ŹRÓDEŁ - bez zmian */}
       <AnimatePresence>
         {showSourcesModal && (
           <motion.div
@@ -1166,7 +1172,6 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
               onClick={(e) => e.stopPropagation()}
               className="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col shadow-2xl"
             >
-              {/* Header */}
               <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
                 <div>
                   <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -1184,7 +1189,6 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
                 </button>
               </div>
 
-              {/* Content - scrollable */}
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 {/* LINKI */}
                 <div>
@@ -1192,8 +1196,6 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
                     <LinkIcon className="w-4 h-4 inline mr-2" />
                     Linki do stron internetowych
                   </label>
-
-                  {/* Input + button */}
                   <div className="flex gap-2 mb-3">
                     <input
                       type="text"
@@ -1210,15 +1212,13 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
                       disabled={urls.length + files.length >= 6}
                       className={`btn px-6 disabled:opacity-50 disabled:cursor-not-allowed transition-all ${
                         urlInput.trim()
-                          ? "btn-primary ring-2 ring-purple-300 dark:ring-purple-500 animate-pulse" // ✅ Podświetl
+                          ? "btn-primary ring-2 ring-purple-300 dark:ring-purple-500 animate-pulse"
                           : "btn-primary"
                       }`}
                     >
                       Dodaj
                     </button>
                   </div>
-
-                  {/* Lista URL */}
                   {urls.length > 0 && (
                     <div className="space-y-2">
                       {urls.map((url, index) => (
@@ -1253,8 +1253,6 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
                     <Upload className="w-4 h-4 inline mr-2" />
                     Pliki dokumentów (PDF, DOC, DOCX)
                   </label>
-
-                  {/* Upload button */}
                   <label
                     className={`flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg transition-all ${
                       urls.length + files.length >= 6
@@ -1277,8 +1275,6 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
                       className="hidden"
                     />
                   </label>
-
-                  {/* Lista plików */}
                   {files.length > 0 && (
                     <div className="space-y-2 mt-3">
                       {files.map((file, index) => (
@@ -1318,15 +1314,13 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
                       </p>
                       <p>
                         Smart-Copy wykorzysta wskazane materiały jako podstawę
-                        do napisania w pełni oryginalnego tekstu. Łączna długość
-                        źródeł: do 200,000 znaków.
+                        do napisania w pełni oryginalnego tekstu.
                       </p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Footer - buttons */}
               <div className="flex gap-3 p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
                 <button
                   type="button"

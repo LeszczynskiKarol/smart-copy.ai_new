@@ -1,7 +1,17 @@
 // frontend/src/components/orders/ProgressBar.tsx
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { Search, CheckCircle, Eye, Sparkles, Clock, Timer } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Search,
+  CheckCircle,
+  Eye,
+  Sparkles,
+  Clock,
+  Timer,
+  Zap,
+  Brain,
+  Rocket,
+} from "lucide-react";
 
 interface ProgressBarProps {
   progress: string | null | undefined;
@@ -10,31 +20,51 @@ interface ProgressBarProps {
 }
 
 const STAGES = [
-  { id: "query", label: "Tworzenie zapytania", icon: Clock, duration: 5 }, // 10s → 5s
-  { id: "search", label: "Wyszukiwanie źródeł", icon: Search, duration: 10 }, // 15s → 10s
-  { id: "select", label: "Wybór źródeł", icon: CheckCircle, duration: 5 }, // 10s → 5s
   {
-    id: "reading",
-    label: "Zapoznawanie się ze źródłami",
+    id: "query",
+    label: "Tworzenie zapytania do Google",
+    icon: Clock,
+    duration: 5,
+  },
+  { id: "search", label: "Wyszukiwanie źródeł", icon: Search, duration: 10 },
+  {
+    id: "scraping-all",
+    label: "Pobieranie treści źródeł",
     icon: Eye,
     duration: 10,
-  }, // 20s → 10s
-  { id: "writing", label: "Tworzenie treści", icon: Sparkles, duration: 0 }, // dynamiczne
+  },
+  {
+    id: "selecting",
+    label: "Wybór najlepszych źródeł",
+    icon: CheckCircle,
+    duration: 5,
+  },
+  { id: "writing", label: "Tworzenie treści", icon: Sparkles, duration: 0 },
+];
+
+// 🎯 LOSOWE TIPY PODCZAS ŁADOWANIA
+const LOADING_TIPS = [
+  "🤖 Inicjalizuję model Claude Sonnet 4...",
+  "🔍 Przygotowuję silnik wyszukiwania...",
+  "📚 Ładuję bazę wiedzy AI...",
+  "⚡ Optymalizuję parametry generowania...",
+  "🎯 Analizuję strukturę treści...",
+  "🌍 Konfiguruję wielojęzyczny model...",
+  "💡 Przygotowuję kreatywne algorytmy...",
+  "🚀 Uruchamiam proces generowania...",
+  "✨ Rozgrzewam neurony AI...",
+  "🔬 Kalibruję parametry jakości...",
 ];
 
 function formatTime(seconds: number): string {
-  if (seconds < 60) {
-    return `${seconds} sek.`;
-  }
+  if (seconds < 60) return `${seconds} sek.`;
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
-
   if (minutes < 60) {
     return remainingSeconds > 0
       ? `${minutes} min. ${remainingSeconds} sek.`
       : `${minutes} min.`;
   }
-
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
   return remainingMinutes > 0
@@ -43,10 +73,7 @@ function formatTime(seconds: number): string {
 }
 
 function calculateTotalDuration(textLength: number): number {
-  // 60 sekund na 1500 znaków
   const writingTime = Math.ceil((textLength / 1500) * 60);
-
-  // Początkowe etapy: tylko 30s łącznie (query + search + select + reading)
   const totalFixedTime = STAGES.slice(0, 4).reduce(
     (sum, stage) => sum + stage.duration,
     0
@@ -60,32 +87,30 @@ function calculateRemainingTime(
   startTime?: string
 ): number {
   if (!progress || progress === "completed") return 0;
-
   const totalDuration = calculateTotalDuration(textLength);
-  const currentIndex = STAGES.findIndex((s) => s.id === progress);
 
+  let normalizedProgress = progress;
+  if (progress === "reading") normalizedProgress = "scraping-all";
+  if (progress === "select") normalizedProgress = "selecting";
+
+  const currentIndex = STAGES.findIndex((s) => s.id === normalizedProgress);
   if (currentIndex === -1) return totalDuration;
 
-  // Jeśli mamy startTime, używamy rzeczywistego czasu
   if (startTime) {
     const start = new Date(startTime).getTime();
     const now = Date.now();
     const actualElapsed = Math.floor((now - start) / 1000);
-
     return Math.max(0, totalDuration - actualElapsed);
   }
 
-  // Oblicz ile czasu już minęło (teoretycznie)
   let elapsedTime = 0;
   for (let i = 0; i < currentIndex; i++) {
     if (i === 4) {
-      // Etap writing
       elapsedTime += Math.ceil((textLength / 1500) * 60);
     } else {
       elapsedTime += STAGES[i].duration;
     }
   }
-
   return Math.max(0, totalDuration - elapsedTime);
 }
 
@@ -95,19 +120,15 @@ function calculateProgress(
   startTime?: string
 ): number {
   if (currentStageIndex === -1) return 0;
-
   const totalDuration = calculateTotalDuration(textLength);
 
-  // Jeśli mamy startTime, użyj rzeczywistego czasu do obliczenia progress
   if (startTime) {
     const start = new Date(startTime).getTime();
     const now = Date.now();
     const actualElapsed = Math.floor((now - start) / 1000);
-
     return Math.min(100, (actualElapsed / totalDuration) * 100);
   }
 
-  // Oblicz progress bazując na etapie
   let elapsedTime = 0;
   for (let i = 0; i <= currentStageIndex; i++) {
     if (i === 4) {
@@ -116,32 +137,205 @@ function calculateProgress(
       elapsedTime += STAGES[i].duration;
     }
   }
-
   return Math.min(100, (elapsedTime / totalDuration) * 100);
 }
+
+// 🎨 KOMPONENT LOADING PRZED STARTEM
+const InitializingLoader = ({ textLength }: { textLength: number }) => {
+  const [currentTip, setCurrentTip] = useState(0);
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    // Rotacja tipów co 2s
+    const tipInterval = setInterval(() => {
+      setCurrentTip((prev) => (prev + 1) % LOADING_TIPS.length);
+    }, 2000);
+
+    // Symulowany progress (0-90% w 10 sekund)
+    const progressInterval = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 90) return prev;
+        return prev + 1.5;
+      });
+    }, 150);
+
+    return () => {
+      clearInterval(tipInterval);
+      clearInterval(progressInterval);
+    };
+  }, []);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="mt-4 p-6 bg-gradient-to-br from-purple-50 via-indigo-50 to-blue-50 dark:from-purple-900/20 dark:via-indigo-900/20 dark:to-blue-900/20 rounded-xl border-2 border-purple-200 dark:border-purple-800 relative overflow-hidden"
+    >
+      {/* Animated background */}
+      <motion.div
+        animate={{
+          backgroundPosition: ["0% 0%", "100% 100%"],
+        }}
+        transition={{
+          duration: 3,
+          repeat: Infinity,
+          repeatType: "reverse",
+        }}
+        className="absolute inset-0 opacity-30"
+        style={{
+          backgroundImage:
+            "linear-gradient(45deg, transparent 25%, rgba(147, 51, 234, 0.1) 25%, rgba(147, 51, 234, 0.1) 50%, transparent 50%, transparent 75%, rgba(147, 51, 234, 0.1) 75%)",
+          backgroundSize: "20px 20px",
+        }}
+      />
+
+      <div className="relative z-10">
+        {/* Header z ikonami */}
+        <div className="flex items-center justify-center gap-3 mb-4">
+          <motion.div
+            animate={{
+              rotate: [0, 360],
+              scale: [1, 1.2, 1],
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
+          >
+            <Brain className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+          </motion.div>
+          <motion.div
+            animate={{
+              scale: [1, 1.3, 1],
+              opacity: [1, 0.5, 1],
+            }}
+            transition={{
+              duration: 1.5,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
+          >
+            <Zap className="w-6 h-6 text-yellow-500" />
+          </motion.div>
+          <motion.div
+            animate={{
+              y: [0, -10, 0],
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
+          >
+            <Rocket className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
+          </motion.div>
+        </div>
+
+        {/* Główny tekst */}
+        <h3 className="text-xl font-bold text-center text-gray-900 dark:text-white mb-2">
+          Przygotowuję generator AI...
+        </h3>
+
+        {/* Animowane tipy */}
+        <div className="h-6 mb-4 overflow-hidden">
+          <AnimatePresence mode="wait">
+            <motion.p
+              key={currentTip}
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -20, opacity: 0 }}
+              transition={{ duration: 0.5 }}
+              className="text-center text-sm text-purple-600 dark:text-purple-400 font-medium"
+            >
+              {LOADING_TIPS[currentTip]}
+            </motion.p>
+          </AnimatePresence>
+        </div>
+
+        {/* Progress bar z shimmer effect */}
+        <div className="relative h-3 bg-white dark:bg-gray-800 rounded-full overflow-hidden mb-4 shadow-inner">
+          <motion.div
+            className="absolute inset-0 bg-gradient-to-r from-purple-500 via-indigo-500 to-blue-500"
+            style={{ width: `${progress}%` }}
+            transition={{ duration: 0.3 }}
+          />
+          {/* Shimmer effect */}
+          <motion.div
+            animate={{
+              x: ["-100%", "200%"],
+            }}
+            transition={{
+              duration: 1.5,
+              repeat: Infinity,
+              ease: "linear",
+            }}
+            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+          />
+        </div>
+
+        {/* Info o tekście */}
+        <div className="flex items-center justify-center gap-4 text-xs text-gray-600 dark:text-gray-400">
+          <span>📝 {textLength.toLocaleString()} znaków</span>
+          <span>•</span>
+          <span>⏱️ Start za moment...</span>
+        </div>
+
+        {/* Pulsujące kropki */}
+        <div className="flex justify-center gap-2 mt-4">
+          {[0, 1, 2].map((i) => (
+            <motion.div
+              key={i}
+              animate={{
+                scale: [1, 1.5, 1],
+                opacity: [0.3, 1, 0.3],
+              }}
+              transition={{
+                duration: 1.5,
+                repeat: Infinity,
+                delay: i * 0.2,
+              }}
+              className="w-2 h-2 bg-purple-600 dark:bg-purple-400 rounded-full"
+            />
+          ))}
+        </div>
+      </div>
+    </motion.div>
+  );
+};
 
 export const ProgressBar = ({
   progress,
   textLength,
   startTime,
 }: ProgressBarProps) => {
-  if (!progress || progress === "completed") return null;
+  // 🎯 JEŚLI BRAK PROGRESS - POKAŻ INITIALIZING LOADER
+  if (!progress || progress === "completed") {
+    if (!progress && progress !== "completed") {
+      return <InitializingLoader textLength={textLength} />;
+    }
+    return null;
+  }
 
-  const currentIndex = STAGES.findIndex((s) => s.id === progress);
+  let normalizedProgress = progress;
+  if (progress === "reading") normalizedProgress = "scraping-all";
+  if (progress === "select") normalizedProgress = "selecting";
+
+  const currentIndex = STAGES.findIndex((s) => s.id === normalizedProgress);
 
   const [remainingSeconds, setRemainingSeconds] = useState(() =>
-    calculateRemainingTime(progress, textLength, startTime)
+    calculateRemainingTime(normalizedProgress, textLength, startTime)
   );
 
   const [progressPercent, setProgressPercent] = useState(() =>
     calculateProgress(currentIndex, textLength, startTime)
   );
 
-  // Odliczanie w czasie rzeczywistym
   useEffect(() => {
     const interval = setInterval(() => {
       const newRemaining = calculateRemainingTime(
-        progress,
+        normalizedProgress,
         textLength,
         startTime
       );
@@ -156,10 +350,15 @@ export const ProgressBar = ({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [progress, textLength, startTime, currentIndex]);
+  }, [normalizedProgress, textLength, startTime, currentIndex]);
 
   return (
-    <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.5 }}
+      className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800"
+    >
       <div className="flex items-center justify-between mb-3">
         <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
           Postęp generowania
@@ -251,6 +450,6 @@ export const ProgressBar = ({
           {formatTime(calculateTotalDuration(textLength))}
         </p>
       </div>
-    </div>
+    </motion.div>
   );
 };

@@ -26,7 +26,6 @@ import { getOrderFullTitle } from "@/utils/orderTitle";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
-import html2pdf from "html2pdf.js";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
 import { saveAs } from "file-saver";
 import { convert } from "html-to-text";
@@ -282,12 +281,17 @@ const TextCard = ({
   const content = text.content ? JSON.parse(text.content) : null;
   const generatedContent = content?.generatedContent || "";
   const isGenerated = !!generatedContent;
+  console.log("🔍 generatedContent length:", generatedContent.length);
 
   // Pobierz plain text
-  const plainText = convert(generatedContent, { wordwrap: false });
+  const plainText = convert(generatedContent, {
+    wordwrap: false,
+    limits: {
+      maxInputLength: Infinity, // ✅ BRAK LIMITU!
+    },
+  });
 
-  const hasMore = plainText.length > 500;
-
+  const hasMore = generatedContent.length > 1000;
   // Tiptap Editor
   const editor = useEditor({
     extensions: [
@@ -341,89 +345,31 @@ const TextCard = ({
     try {
       toast.loading("Generowanie PDF...", { id: "pdf-gen" });
 
-      const element = document.createElement("div");
-      element.innerHTML = generatedContent;
-      element.style.padding = "40px";
-      element.style.fontFamily = "Arial, sans-serif";
-      element.style.fontSize = "14px";
-      element.style.lineHeight = "1.6";
-      element.style.color = "#000";
-      element.style.maxWidth = "800px";
+      // ✅ Użyj apiClient zamiast fetch!
+      const response = await apiClient.get(`/texts/${text.id}/pdf`, {
+        responseType: "blob", // WAŻNE!
+      });
 
-      const style = document.createElement("style");
-      style.textContent = `
-      h1 { 
-        font-size: 24px; 
-        font-weight: bold; 
-        margin: 20px 0 10px 0;
-        page-break-after: avoid;
-        page-break-inside: avoid;
-      }
-      h2 { 
-        font-size: 20px; 
-        font-weight: bold; 
-        margin: 16px 0 8px 0;
-        page-break-after: avoid;
-        page-break-inside: avoid;
-      }
-      h3 { 
-        font-size: 18px; 
-        font-weight: bold; 
-        margin: 14px 0 7px 0;
-        page-break-after: avoid;
-        page-break-inside: avoid;
-      }
-      p { 
-        margin: 0 0 14px 0;
-        page-break-inside: avoid;
-        orphans: 3;
-        widows: 3;
-      }
-      ul, ol { 
-        margin: 10px 0 14px 0; 
-        padding-left: 30px;
-        page-break-inside: avoid;
-      }
-      li { 
-        margin: 6px 0;
-      }
-      strong { font-weight: bold; }
-      em { font-style: italic; }
-      * {
-        box-sizing: border-box;
-      }
-    `;
-      element.appendChild(style);
+      // ✅ Pobierz blob
+      const blob = response.data;
 
-      const opt: any = {
-        margin: [20, 20, 25, 20], // top, right, bottom, left - zwiększone marginesy!
-        filename: `${text.topic.replace(/[^a-z0-9]/gi, "_")}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          letterRendering: true,
-          logging: false,
-        },
-        jsPDF: {
-          unit: "mm",
-          format: "a4",
-          orientation: "portrait",
-        },
-        pagebreak: {
-          mode: ["avoid-all", "css", "legacy"],
-          before: ".page-break-before",
-          after: ".page-break-after",
-          avoid: ["p", "h1", "h2", "h3", "ul", "ol"],
-        },
-      };
+      // ✅ Stwórz link do pobrania
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${text.topic.replace(/[^a-z0-9]/gi, "_")}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
 
-      await html2pdf().set(opt).from(element).save();
-
-      toast.success("PDF pobrany!", { id: "pdf-gen" });
-    } catch (error) {
-      console.error(error);
-      toast.error("Błąd generowania PDF", { id: "pdf-gen" });
+      toast.success("PDF pobrany! 🎉", { id: "pdf-gen" });
+    } catch (error: any) {
+      console.error("PDF Error:", error);
+      toast.error(error.response?.data?.error || "Błąd generowania PDF", {
+        id: "pdf-gen",
+        duration: 5000,
+      });
     }
   };
 

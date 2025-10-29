@@ -82,6 +82,41 @@ const StatusBadge = ({ status }: { status: string }) => {
   );
 };
 
+const TextStatusBadge = ({ progress }: { progress?: string | null }) => {
+  if (!progress) {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+        <Clock className="w-3 h-3" />
+        Oczekuje
+      </span>
+    );
+  }
+
+  if (progress === "completed") {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+        <CheckCircle className="w-3 h-3" />
+        Ukończony
+      </span>
+    );
+  }
+
+  if (progress === "error") {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300">
+        <XCircle className="w-3 h-3" />
+        Błąd
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 animate-pulse">
+      <Package className="w-3 h-3" />W trakcie
+    </span>
+  );
+};
+
 export const OrdersPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState<"list" | "new">("list");
@@ -258,87 +293,146 @@ export const OrdersPage = () => {
           {/* Orders List */}
           {!isLoading && orders && orders.length > 0 && (
             <div className="space-y-6">
-              {orders.map((order, index) => (
-                <motion.div
-                  key={order.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="card dark:bg-gray-800 dark:border-gray-700 hover:shadow-lg transition-shadow"
-                >
-                  <div className="flex items-start justify-between mb-6">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
+              {orders.map((order, index) => {
+                // ✅ OBLICZ STATYSTYKI TEKSTÓW
+                const completedTexts = order.texts.filter(
+                  (t) => t.progress === "completed"
+                ).length;
+
+                const totalTexts = order.texts.length;
+
+                return (
+                  <motion.div
+                    key={order.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="card dark:bg-gray-800 dark:border-gray-700 hover:shadow-lg transition-shadow"
+                  >
+                    <div className="flex items-start justify-between mb-6">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <button
+                            onClick={() => navigate(`/orders/${order.id}`)}
+                            className="text-xl font-bold text-gray-900 dark:text-white hover:text-purple-600 dark:hover:text-purple-400 transition-colors text-left"
+                          >
+                            {getOrderTitle(order)}
+                          </button>
+                          <StatusBadge status={order.status} />
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                          {order.orderNumber}
+                        </p>
+                        <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-4 h-4" />
+                            {new Date(order.createdAt).toLocaleDateString(
+                              "pl-PL"
+                            )}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <FileText className="w-4 h-4" />
+                            {order.texts.length}{" "}
+                            {order.texts.length === 1
+                              ? "tekst"
+                              : order.texts.length < 5
+                              ? "teksty"
+                              : "tekstów"}
+                          </span>
+                          {/* ✨ PROGRESS DLA WIELOTEKSTOWYCH */}
+                          {order.status === "IN_PROGRESS" && totalTexts > 1 && (
+                            <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400 font-medium">
+                              <CheckCircle className="w-4 h-4" />
+                              {completedTexts}/{totalTexts} ukończonych
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-3xl font-bold text-purple-600 dark:text-purple-400 mb-1">
+                          {parseFloat(order.totalPrice.toString()).toFixed(2)}{" "}
+                          zł
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ✨ PROGRESS BARS - ZAWSZE DLA IN_PROGRESS */}
+                    {order.status === "IN_PROGRESS" && (
+                      <div className="mt-4 space-y-3">
+                        {order.texts.map((text) => (
+                          <div key={text.id}>
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                {text.topic}
+                              </p>
+                              <TextStatusBadge progress={text.progress} />
+                            </div>
+
+                            {/* ✅ POKAŻ PROGRESS BAR tylko dla tekstów w trakcie */}
+                            {text.progress &&
+                              text.progress !== "completed" &&
+                              text.progress !== "error" && (
+                                <ProgressBar
+                                  progress={text.progress}
+                                  textLength={text.length}
+                                  startTime={text.startTime}
+                                />
+                              )}
+
+                            {/* ✅ UKOŃCZONY - zielony box */}
+                            {text.progress === "completed" && (
+                              <motion.div
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg"
+                              >
+                                <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
+                                  <CheckCircle className="w-5 h-5" />
+                                  <span className="text-sm font-medium">
+                                    Tekst ukończony! Będzie dostępny po
+                                    zakończeniu całego zamówienia.
+                                  </span>
+                                </div>
+                              </motion.div>
+                            )}
+
+                            {/* ❌ BŁĄD */}
+                            {text.progress === "error" && (
+                              <motion.div
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg"
+                              >
+                                <div className="flex items-center gap-2 text-red-700 dark:text-red-300">
+                                  <XCircle className="w-5 h-5" />
+                                  <span className="text-sm font-medium">
+                                    Wystąpił błąd podczas generowania
+                                  </span>
+                                </div>
+                              </motion.div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {order.status === "COMPLETED" && (
+                      <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
                         <button
                           onClick={() => navigate(`/orders/${order.id}`)}
-                          className="text-xl font-bold text-gray-900 dark:text-white hover:text-purple-600 dark:hover:text-purple-400 transition-colors text-left"
+                          className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors flex items-center gap-2 text-sm font-medium"
                         >
-                          {getOrderTitle(order)}
+                          Zobacz szczegóły
+                          <ArrowRight className="w-4 h-4" />
                         </button>
-                        <StatusBadge status={order.status} />
                       </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                        {order.orderNumber}
-                      </p>
-
-                      <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-4 h-4" />
-                          {new Date(order.createdAt).toLocaleDateString(
-                            "pl-PL"
-                          )}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <FileText className="w-4 h-4" />
-                          {order.texts.length}{" "}
-                          {order.texts.length === 1
-                            ? "tekst"
-                            : order.texts.length < 5
-                            ? "teksty"
-                            : "tekstów"}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-3xl font-bold text-purple-600 dark:text-purple-400 mb-1">
-                        {parseFloat(order.totalPrice.toString()).toFixed(2)} zł
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Progress bars for IN_PROGRESS orders */}
-                  {order.status === "IN_PROGRESS" && (
-                    <div className="mt-4 space-y-3">
-                      {order.texts.map((text) => (
-                        <div key={text.id}>
-                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            {text.topic}
-                          </p>
-                          <ProgressBar
-                            progress={text.progress}
-                            textLength={text.length}
-                            startTime={text.startTime}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {order.status === "COMPLETED" && (
-                    <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-                      <button
-                        onClick={() => navigate(`/orders/${order.id}`)}
-                        className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors flex items-center gap-2 text-sm font-medium"
-                      >
-                        Zobacz szczegóły
-                        <ArrowRight className="w-4 h-4" />
-                      </button>
-                    </div>
-                  )}
-                </motion.div>
-              ))}
+                    )}
+                  </motion.div>
+                );
+              })}
             </div>
           )}
+
           {/* Order Details Modal */}
           {selectedOrder && (
             <motion.div

@@ -10,23 +10,16 @@ const anthropic = new Anthropic({
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY!;
 const GOOGLE_CX = process.env.GOOGLE_CX || "47c4cfcb21523490f";
 
-function capitalizeFirstLetter(text: string): string {
-  if (!text) return text;
-  return text.charAt(0).toUpperCase() + text.slice(1);
-}
-
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 🔒 TWARDY LIMIT TOKENÓW - ZAPOBIEGA PRZEKROCZENIU DŁUGOŚCI
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function calculateMaxTokens(targetLength: number): number {
-  // 1 token ≈ 4 znaki dla języków łacińskich (en, pl, de, es, fr, it)
-  // Dla języków ze znakami specjalnymi (uk, ru) może być 1:3
-  const baseTokens = Math.ceil(targetLength / 3.5);
+  // 1 token ≈ 3 znaki OUTPUT
+  const baseTokens = Math.ceil(targetLength / 3.0);
 
-  // Margines 20% (Claude często pisze więcej niż trzeba)
-  const withMargin = Math.ceil(baseTokens * 1.2);
+  // ✅ ZWIĘKSZONY MARGINES: 100% (było 50%)
+  const withMargin = Math.ceil(baseTokens * 2.0); // ✅ 2x zamiast 1.5x
 
-  // Limity bezpieczeństwa
   const MIN_TOKENS = 300;
   const MAX_TOKENS = 16000;
 
@@ -34,8 +27,8 @@ function calculateMaxTokens(targetLength: number): number {
 
   console.log(`📊 KALKULACJA MAX_TOKENS:`);
   console.log(`   Target: ${targetLength} znaków`);
-  console.log(`   Bazowe tokeny (÷3.5): ${baseTokens}`);
-  console.log(`   Z marginesem (+20%): ${withMargin}`);
+  console.log(`   Bazowe tokeny (÷3.0): ${baseTokens}`);
+  console.log(`   Z marginesem (×2.0): ${withMargin}`); // ✅ ZMIENIONY LOG
   console.log(`   🔒 FINAL: ${finalTokens} tokenów\n`);
 
   return finalTokens;
@@ -68,7 +61,6 @@ async function updateTextProgress(textId: string, progress: string) {
   }
 }
 
-// Wysyłka emaila
 async function sendOrderCompletedEmail(
   email: string,
   order: { orderNumber: string; texts: Array<{ topic: string }> }
@@ -77,7 +69,6 @@ async function sendOrderCompletedEmail(
     const { SESv2Client, SendEmailCommand } = await import(
       "@aws-sdk/client-sesv2"
     );
-
     const sesClient = new SESv2Client({
       region: process.env.AWS_REGION_MAIL || "us-east-1",
       credentials: {
@@ -86,19 +77,53 @@ async function sendOrderCompletedEmail(
       },
     });
 
-    // Tytuł zamówienia
-    const firstTopic = order.texts[0]?.topic || "Zamówienie";
-    const words = firstTopic.split(" ");
-    const rawTitle =
-      words.length <= 5 ? firstTopic : words.slice(0, 5).join(" ") + "...";
-    const orderTitle = capitalizeFirstLetter(rawTitle);
+    // ✅ INTELIGENTNY TYTUŁ ZAMÓWIENIA
+    let orderTitle: string;
+    const textsCount = order.texts.length;
 
+    if (textsCount === 1) {
+      // 1 tekst - pełny tytuł (max 60 znaków)
+      const topic = order.texts[0].topic;
+      orderTitle = topic.length <= 60 ? topic : topic.substring(0, 57) + "...";
+    } else if (textsCount === 2) {
+      // 2 teksty - "Temat 1 + 1 więcej"
+      const firstTopic = order.texts[0].topic;
+      const shortFirst =
+        firstTopic.length > 30
+          ? firstTopic.substring(0, 27) + "..."
+          : firstTopic;
+      orderTitle = `${shortFirst} + 1 więcej`;
+    } else {
+      // 3+ teksty - "Temat 1 + X więcej"
+      const firstTopic = order.texts[0].topic;
+      const shortFirst =
+        firstTopic.length > 30
+          ? firstTopic.substring(0, 27) + "..."
+          : firstTopic;
+      const remaining = textsCount - 1;
+      orderTitle = `${shortFirst} + ${remaining} więcej`;
+    }
+
+    // ✅ LEPSZY SUBJECT
+    const emailSubject =
+      textsCount === 1
+        ? `Zamówienie "${orderTitle}" gotowe! 🎉`
+        : `Zamówienie (${textsCount} teksty) gotowe! 🎉`;
+
+    // ✅ HTML z informacją o liczbie tekstów
     const htmlContent = `
       <h2>Twoje zamówienie jest gotowe!</h2>
       <p>Zamówienie <strong>${orderTitle}</strong> zostało ukończone.</p>
+      ${
+        textsCount > 1
+          ? `<p style="color: #7c3aed; font-weight: 600;">✨ Wygenerowano ${textsCount} tekstów</p>`
+          : ""
+      }
       <p style="color: #6b7280; font-size: 14px;">(${order.orderNumber})</p>
       <p>Możesz je pobrać logując się na swoje konto:</p>
-      <a href="${process.env.FRONTEND_URL}/orders" style="display: inline-block; padding: 12px 24px; background: #7c3aed; color: white; text-decoration: none; border-radius: 8px; margin: 16px 0;">
+      <a href="${
+        process.env.FRONTEND_URL
+      }/orders" style="display: inline-block; padding: 12px 24px; background: #7c3aed; color: white; text-decoration: none; border-radius: 8px; margin: 16px 0;">
         Zobacz zamówienie
       </a>
       <p>Dziękujemy za skorzystanie z Smart-Copy.ai!</p>
@@ -113,13 +138,16 @@ async function sendOrderCompletedEmail(
         Content: {
           Simple: {
             Subject: {
-              Data: `Zamówienie "${orderTitle}" gotowe! 🎉`,
+              Data: emailSubject,
               Charset: "UTF-8",
             },
             Body: {
               Html: { Data: htmlContent, Charset: "UTF-8" },
               Text: {
-                Data: `Twoje zamówienie "${orderTitle}" (${order.orderNumber}) jest gotowe! Zaloguj się: ${process.env.FRONTEND_URL}/orders`,
+                Data:
+                  textsCount === 1
+                    ? `Twoje zamówienie "${orderTitle}" (${order.orderNumber}) jest gotowe! Zaloguj się: ${process.env.FRONTEND_URL}/orders`
+                    : `Twoje zamówienie (${textsCount} teksty) "${orderTitle}" (${order.orderNumber}) jest gotowe! Zaloguj się: ${process.env.FRONTEND_URL}/orders`,
                 Charset: "UTF-8",
               },
             },
@@ -128,7 +156,7 @@ async function sendOrderCompletedEmail(
       })
     );
 
-    console.log(`✉️ Email wysłany do ${email}`);
+    console.log(`✉️ Email wysłany do ${email} (${textsCount} tekstów)`);
   } catch (error) {
     console.error("❌ Błąd wysyłki emaila:", error);
   }
@@ -164,7 +192,7 @@ ZASADY:
 TWOJE ZAPYTANIE (w języku ${languageName}):`;
 
   const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-5-20250929",
+    model: "claude-sonnet-4-5-20250929", //model: "claude-3-haiku-20240307", oraz model: "claude-sonnet-4-5-20250929",
     max_tokens: 100,
     temperature: 0.3,
     messages: [{ role: "user", content: prompt }],
@@ -325,33 +353,34 @@ async function scrapeUrls(urls: string[], isUserSource: boolean = false) {
   const SCRAPER_URL =
     process.env.SCRAPER_URL ||
     "http://scraper-najnowszy-env.eba-8usajxuv.eu-north-1.elasticbeanstalk.com";
+
   const results = [];
   const MAX_TOTAL_LENGTH = isUserSource ? 200000 : 150000;
   let currentTotalLength = 0;
 
+  // ✅ TIMEOUT: 5 min dla użytkownika, 100s dla Google
+  const TIMEOUT = isUserSource ? 300000 : 100000; // 5 min vs 100s
+
   for (let i = 0; i < urls.length; i++) {
     const url = urls[i];
+
     try {
       console.log(
         `🕷️ Scrapuję ${isUserSource ? "[USER SOURCE]" : ""} [${i + 1}/${
           urls.length
         }]: ${url.substring(0, 60)}...`
       );
-
-      // 🔹 DODANE: Logowanie requestu
-      console.log(`📤 Wysyłam POST do: ${SCRAPER_URL}/scrape`);
-      console.log(`📤 Payload: ${JSON.stringify({ url })}`);
+      console.log(`⏱️  Timeout: ${TIMEOUT / 1000}s`);
 
       const response = await axios.post(
         `${SCRAPER_URL}/scrape`,
         { url },
         {
           headers: { "Content-Type": "application/json" },
-          timeout: 100000,
+          timeout: TIMEOUT, // ✅ DYNAMICZNY TIMEOUT
         }
       );
 
-      // 🔹 DODANE: Logowanie pełnej odpowiedzi
       console.log(`📥 Status: ${response.status}`);
       console.log(
         `📥 Response data keys: ${Object.keys(response.data).join(", ")}`
@@ -360,14 +389,12 @@ async function scrapeUrls(urls: string[], isUserSource: boolean = false) {
         `📥 Response.data.text length: ${response.data.text?.length || 0}`
       );
 
-      // 🔹 DODANE: Pokaż pierwsze 500 znaków
       if (response.data.text) {
         console.log(
           `📥 Pierwsze 500 znaków:\n${response.data.text.substring(0, 500)}`
         );
       }
 
-      // 🔹 DODANE: Pokaż cały response jeśli krótki (< 200 znaków)
       if (response.data.text && response.data.text.length < 200) {
         console.log(
           `⚠️ UWAGA: Bardzo krótka odpowiedź!\n📥 Cała odpowiedź:\n${response.data.text}`
@@ -377,7 +404,6 @@ async function scrapeUrls(urls: string[], isUserSource: boolean = false) {
       if (response.status === 200 && response.data.text) {
         let scrapedText = response.data.text;
         const originalLength = scrapedText.length;
-
         const remainingSources = urls.length - i;
         const remainingSpace = MAX_TOTAL_LENGTH - currentTotalLength;
         const maxForThisSource = Math.floor(remainingSpace / remainingSources);
@@ -404,7 +430,6 @@ async function scrapeUrls(urls: string[], isUserSource: boolean = false) {
           `  ✅ Zescrapowano ${scrapedText.length} znaków (łącznie: ${currentTotalLength})`
         );
       } else {
-        // 🔹 DODANE: Lepsze logowanie błędów
         console.error(`  ❌ Invalid response - status: ${response.status}`);
         console.error(`  ❌ Response data: ${JSON.stringify(response.data)}`);
         throw new Error("Invalid scraper response");
@@ -412,18 +437,17 @@ async function scrapeUrls(urls: string[], isUserSource: boolean = false) {
 
       await new Promise((resolve) => setTimeout(resolve, 2000));
     } catch (error: any) {
-      // 🔹 DODANE: Szczegółowe logowanie błędów
       console.error(`  ❌ Błąd scrapowania: ${error.message}`);
-
       if (error.response) {
         console.error(`  ❌ Response status: ${error.response.status}`);
         console.error(
           `  ❌ Response data: ${JSON.stringify(error.response.data)}`
         );
       }
-
       if (error.code === "ECONNABORTED") {
-        console.error(`  ❌ Timeout - scraper nie odpowiedział w 30s`);
+        console.error(
+          `  ❌ Timeout - scraper nie odpowiedział w ${TIMEOUT / 1000}s`
+        );
       }
 
       results.push({
@@ -451,7 +475,6 @@ async function scrapeUrls(urls: string[], isUserSource: boolean = false) {
     `  Łączna długość: ${currentTotalLength} / ${MAX_TOTAL_LENGTH} znaków`
   );
 
-  // 🔹 DODANE: Wyświetl szczegóły każdego źródła
   console.log(`\n📋 SZCZEGÓŁY KAŻDEGO ŹRÓDŁA:`);
   results.forEach((r, idx) => {
     console.log(`\n  [${idx + 1}] ${r.url}`);
@@ -802,135 +825,138 @@ async function generateShortContent(
 ): Promise<string> {
   const includeIntro = text.length >= 5000;
   const hasUserSources = sources.includes("ŹRÓDŁA PRIORYTETOWE");
+  const maxTokens = calculateMaxTokens(text.length);
 
-  // 🔒 BARDZO RESTRYKCYJNY max_tokens (bez marginesu!)
-  const maxTokens = Math.ceil(text.length / 4); // 1:4 ratio, BEZ marginesu
-
-  const minLength = Math.floor(text.length * 0.95);
+  const minLength = Math.floor(text.length * 0.9);
+  const targetLength = Math.ceil(text.length * 1.0);
   const maxLength = Math.ceil(text.length * 1.05);
 
+  const requiredLists = Math.max(1, Math.floor(text.length / 50000));
+  const requiredTables = Math.max(1, Math.floor(text.length / 15000));
+
   const prompt = `╔═══════════════════════════════════════════════════════════════╗
-║  🔴 ABSOLUTNY WYMÓG: DOKŁADNA DŁUGOŚĆ TEKSTU 🔴              ║
+║  🔴🔴🔴 CEL: ${targetLength} ZNAKÓW - NIE MNIEJ! 🔴🔴🔴       ║
 ╚═══════════════════════════════════════════════════════════════╝
-
-🔴🔴🔴 LIMIT: ${text.length} ZNAKÓW (±5%) 🔴🔴🔴
-      MINIMUM: ${minLength} znaków
-      MAXIMUM: ${maxLength} znaków
-
-⚠️ PRZEKROCZENIE = CAŁKOWITA PORAŻKA! ⚠️
-⚠️ NIE BĘDZIE DRUGIEJ SZANSY! ⚠️
-
+🎯 TWÓJ OBOWIĄZKOWY CEL: ${targetLength} znaków
+   ABSOLUTNE MINIMUM: ${minLength} znaków
+   MAKSIMUM: ${maxLength} znaków
+⚠️⚠️⚠️ KRYTYCZNE: Jeśli masz mniej niż ${targetLength} znaków - KONTYNUUJ PISANIE!
+⚠️⚠️⚠️ LEPIEJ PRZEKROCZYĆ ${targetLength} niż napisać ${minLength}!
 ═══════════════════════════════════════════════════════════════
-
-Jesteś profesjonalnym copywriterem. Piszesz HTML.
-
+📋 WYMAGANE ELEMENTY HTML:
+═══════════════════════════════════════════════════════════════
+✅ OBOWIĄZKOWE LISTY: ${requiredLists} (minimum!)
+   - Użyj <ul> lub <ol> z co najmniej 4-6 elementami <li>
+   - Każdy <li> powinien mieć 50-100 znaków
+   - Lista dodaje ~400-600 znaków
+✅ OBOWIĄZKOWE TABELE: ${requiredTables} (minimum!)
+   - Użyj <table> z <thead>, <tbody>, <tr>, <th>, <td>
+   - Co najmniej 4 kolumny × 5-8 wierszy
+   - Tabela dodaje ~800-1500 znaków
+═══════════════════════════════════════════════════════════════
 KRYTYCZNE ZASADY FORMATOWANIA HTML:
+═══════════════════════════════════════════════════════════════
 1. Pisz TYLKO czysty HTML - bez <!DOCTYPE>, <html>, <head>, <body>
 2. Rozpocznij od: <h1>Tytuł Tekstu</h1>
 3. ${
     includeIntro
-      ? "Następnie wstęp: <p>Wstęp...</p>"
+      ? "Następnie wstęp: <p>Wstęp... (400-600 znaków)</p>"
       : "Po tytule BEZPOŚREDNIO treść główna"
   }
-4. Używaj <h2>, <h3>, <p>, <ul>, <ol>, <strong>, <em>
-5. Zakończ na </p> - MUSISZ zakończyć tekst sensownie!
-
+4. Używaj <h2>, <h3>, <p>, <ul>, <ol>, <table>, <strong>, <em>
+5. DODAJ ${requiredLists} list i ${requiredTables} tabel!
+6. Zakończ sensownie na </p>
 ═══════════════════════════════════════════════════════════════
-⚠️ STRATEGIA PISANIA DLA ${text.length} ZNAKÓW:
+⚠️ JAK OSIĄGNĄĆ ${targetLength} ZNAKÓW:
 ═══════════════════════════════════════════════════════════════
-
 ${
   text.length <= 2000
     ? `
-🔹 To BARDZO KRÓTKI tekst (${text.length} znaków)
-🔹 <h1> + 2-3 KRÓTKIE akapity + zakończenie
-🔹 Każdy akapit: ~${Math.floor(text.length / 5)}-${Math.floor(
-        text.length / 4
-      )} znaków
-🔹 BEZ rozwijania myśli - TYLKO esencja!
-🔹 ZWIĘŹLE! Każde słowo musi być potrzebne!
-🔹 PRZESTAŃ PISAĆ gdy osiągniesz ~${text.length} znaków!
+🔹 To KRÓTKI tekst (~${targetLength} znaków)
+🔹 Struktura:
+   - <h1> (50 znaków)
+   - ${includeIntro ? "<p>Wstęp (400-500 znaków)</p>" : ""}
+   - 3-4 sekcje <h2> z akapitami (każda ~500 znaków)
+   - 1 lista <ul> z 5-6 elementami (500 znaków)
+   - Zakończenie <p> (300 znaków)
+🔹 RAZEM: ~${targetLength} znaków!
 `
     : text.length <= 5000
     ? `
-🔹 To ŚREDNI tekst (${text.length} znaków)
-🔹 <h1> + 2-3 sekcje <h2> + zakończenie
-🔹 Każda sekcja: ~${Math.floor(text.length / 5)} znaków
-🔹 Nie rozwijaj zbytnio - trzymaj się tematu!
+🔹 To ŚREDNI tekst (~${targetLength} znaków)
+🔹 Struktura:
+   - <h1> (50 znaków)
+   - ${includeIntro ? "<p>Wstęp (500 znaków)</p>" : ""}
+   - 4-5 sekcji <h2> (każda ~800-1000 znaków)
+   - ${requiredLists} listy <ul> (po ~500 znaków)
+   - ${requiredTables} tabele (po ~1000 znaków)
+   - Zakończenie (400 znaków)
+🔹 RAZEM: ~${targetLength} znaków!
 `
     : `
-🔹 To DŁUŻSZY tekst (${text.length} znaków)
-🔹 <h1> + wstęp + 3-4 sekcje <h2> z podsekcjami <h3>
-🔹 Rozwijaj myśli, ale kontroluj długość!
+🔹 To DŁUŻSZY tekst (~${targetLength} znaków)
+🔹 Struktura:
+   - <h1> + ${includeIntro ? "Wstęp + " : ""}5-6 sekcji <h2>
+   - Każda sekcja z podsekcjami <h3>
+   - ${requiredLists} rozbudowanych list
+   - ${requiredTables} szczegółowych tabel
+🔹 ROZWIJAJ SZCZEGÓŁOWO każdą myśl!
 `
 }
-
-⚠️ KRYTYCZNE: Gdy zbliżasz się do ${text.length} znaków:
-   - Zacznij kończyć tekst
-   - Dodaj krótkie podsumowanie w <p>
-   - Zamknij wszystkie tagi
-   - PRZESTAŃ PISAĆ!
-
+⚠️⚠️⚠️ SPRAWDZAJ DŁUGOŚĆ W TRAKCIE PISANIA:
+- Po każdej sekcji <h2> sprawdź, ile jeszcze zostało do ${targetLength}
+- Jeśli brakuje - dodaj więcej przykładów, rozwiń myśli, dodaj listy/tabele
+- NIE KOŃCZ zanim nie osiągniesz ~${targetLength} znaków!
 ═══════════════════════════════════════════════════════════════
-
 PARAMETRY:
+═══════════════════════════════════════════════════════════════
 - TEMAT: ${text.topic}
 - RODZAJ: ${text.textType}
-- 🔴 DŁUGOŚĆ: ${text.length} znaków (${minLength}-${maxLength}) 🔴
+- 🎯 CEL: ${targetLength} znaków (${minLength}-${maxLength})
 - JĘZYK: ${text.language}
-${
-  includeIntro
-    ? "- STRUKTURA: H1 → Wstęp → Treść → Zakończenie"
-    : "- STRUKTURA: H1 → Treść → Zakończenie"
-}
 - WYTYCZNE: ${text.guidelines || "brak"}
-
+- WYMAGANE LISTY: ${requiredLists}
+- WYMAGANE TABELE: ${requiredTables}
 ═══════════════════════════════════════════════════════════════
-
 ZASADY TREŚCI:
+═══════════════════════════════════════════════════════════════
 1. Pisz WYŁĄCZNIE w języku: ${text.language}
 2. ZAKAZ kopiowania ze źródeł - własne słowa
-3. ZAKAZ powtórzeń z poprzednich odpowiedzi
-4. Oryginalny, wartościowy, ciekawy
-5. 🔴 LICZY SIĘ KAŻDY ZNAK - KONTROLUJ DŁUGOŚĆ! 🔴
-6. 🔴 MUSISZ zakończyć tekst sensownie - nie przerywaj w połowie! 🔴
-
+3. ZAKAZ powtórzeń
+4. Oryginalny, wartościowy, szczegółowy
+5. 🎯 DĄŻYSZ DO ${targetLength} ZNAKÓW!
+6. 📋 DODAJ ${requiredLists} list i ${requiredTables} tabel!
 ${
   hasUserSources
     ? `
 ⚠️ KRYTYCZNE: PRIORYTET DLA ŹRÓDEŁ UŻYTKOWNIKA
 - Użytkownik wskazał konkretne materiały
 - Wykorzystaj JE W PIERWSZEJ KOLEJNOŚCI
-- Źródła Google tylko uzupełnieniem
 `
     : ""
 }
-
 ═══════════════════════════════════════════════════════════════
 ${hasUserSources ? "MATERIAŁY ŹRÓDŁOWE (UŻYTKOWNIK + GOOGLE):" : "ŹRÓDŁA:"}
 ═══════════════════════════════════════════════════════════════
-
 ${sources}
-
 ═══════════════════════════════════════════════════════════════
-🔴 OSTATNIE PRZYPOMNIENIE:
+⚠️⚠️⚠️ KRYTYCZNE - ZARZĄDZANIE DŁUGOŚCIĄ:
 ═══════════════════════════════════════════════════════════════
-
-TWÓJ TEKST MUSI MIEĆ: ${text.length} znaków (±5%)
-- Mniej niż ${minLength}: ❌ ZA KRÓTKI
-- Więcej niż ${maxLength}: ❌ ZA DŁUGI
-- W zakresie ${minLength}-${maxLength}: ✅ IDEALNE
-
-LEPIEJ NIECO KRÓCEJ NIŻ ZA DŁUGO!
-LEPIEJ TEKST ZAKOŃCZONY SENSOWNIE NIŻ URWANY W POŁOWIE!
-
-PISZ ZWIĘŹLE, NA TEMAT, I ZAKOŃCZ PORZĄDNIE!
-
-NAPISZ TEKST W CZYSTYM HTML (${minLength}-${maxLength} znaków):`;
+1. Monitoruj swoją długość podczas pisania
+2. Jeśli zbliżasz się do ${targetLength} znaków:
+   ✅ ZAKOŃCZ na sensownym miejscu (koniec akapitu lub sekcji)
+   ✅ Dodaj krótkie podsumowanie (300-400 znaków)
+   ✅ NIE ZOSTAWIAJ urwanego zdania!
+3. LEPIEJ SKOŃCZYĆ przy ${Math.floor(
+    targetLength * 0.95
+  )} niż być urwanym przy ${maxLength}!
+═══════════════════════════════════════════════════════════════
+🎯 NAPISZ TEKST (${targetLength} ZNAKÓW, ${requiredLists} list, ${requiredTables} tabel):
+═══════════════════════════════════════════════════════════════`;
 
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-5-20250929",
-    max_tokens: maxTokens, // 🔒 BARDZO RESTRYKCYJNY LIMIT
+    max_tokens: maxTokens,
     temperature: 0.7,
     messages: [{ role: "user", content: prompt }],
   });
@@ -938,25 +964,27 @@ NAPISZ TEKST W CZYSTYM HTML (${minLength}-${maxLength} znaków):`;
   const response =
     message.content[0].type === "text" ? message.content[0].text : "";
 
-  // 🔒 TYLKO LOGOWANIE - BEZ PRZYCINANIA!
   const actualLength = response.length;
-  console.log(`\n📏 WERYFIKACJA DŁUGOŚCI:`);
-  console.log(`   Oczekiwano: ${text.length} ±5% (${minLength}-${maxLength})`);
+  console.log(`\n📏 DŁUGOŚĆ WYGENEROWANEJ TREŚCI:`);
+  console.log(`   Cel: ${targetLength} znaków`);
   console.log(`   Otrzymano: ${actualLength} znaków`);
 
-  if (actualLength > maxLength) {
-    console.error(`❌ TEKST ZA DŁUGI! (${actualLength} > ${maxLength})`);
-    console.error(`   Przekroczenie o: ${actualLength - maxLength} znaków`);
-    // ⚠️ BEZ PRZYCINANIA - zwracamy taki jaki jest
-    // Użytkownik zobaczy problem i będzie mógł zlecić ponownie
-  } else if (actualLength < minLength) {
-    console.warn(`⚠️ TEKST ZA KRÓTKI! (${actualLength} < ${minLength})`);
-    console.warn(`   Brakuje: ${minLength - actualLength} znaków`);
+  // ✅ TYLKO WERYFIKACJA
+  const verification = await verifyAndFixEnding(
+    response,
+    true, // to zawsze ostatnia część (całość tekstu)
+    text.topic
+  );
+
+  const finalResponse = verification.fixed;
+
+  if (!verification.wasTruncated) {
+    console.log(`   ✅ Prawidłowo zakończony - zachowano całość`);
   } else {
-    console.log(`   ✅ DŁUGOŚĆ OK!\n`);
+    console.log(`   ✂️ Poprawiono urwaną część`);
   }
 
-  // ZAPISZ PROMPTY
+  // ZAPISZ
   const { PrismaClient } = await import("@prisma/client");
   const prisma = new PrismaClient();
   const existingText = await prisma.text.findUnique({ where: { id: text.id } });
@@ -966,8 +994,10 @@ NAPISZ TEKST W CZYSTYM HTML (${minLength}-${maxLength} znaków):`;
   const existingWriterResponses = existingText?.writerResponses
     ? JSON.parse(existingText.writerResponses)
     : [];
+
   existingWriterPrompts.push(prompt);
-  existingWriterResponses.push(response);
+  existingWriterResponses.push(finalResponse); // ✅ Zapisz POPRAWNY
+
   await prisma.text.update({
     where: { id: text.id },
     data: {
@@ -977,14 +1007,29 @@ NAPISZ TEKST W CZYSTYM HTML (${minLength}-${maxLength} znaków):`;
   });
   await prisma.$disconnect();
 
-  return response; // Zwracamy pełny tekst, nawet jeśli za długi
+  return finalResponse; // ✅ Zwróć POPRAWNY
 }
 
 // >= 10 000 znaków - Kierownik określa strukturę
-async function generateStructure(text: any): Promise<string> {
+async function generateStructure(
+  text: any,
+  writersCount: number = 1
+): Promise<{
+  fullStructure: string;
+  writerAssignments: Array<{
+    writer: number;
+    sections: string;
+    structure: string;
+    targetLength: number;
+  }>;
+}> {
   const includeIntro = text.length >= 5000;
-  // Sprawdź czy są źródła użytkownika
-  const prompt = `Jesteś kierownikiem projektu content. Określ strukturę i spis treści dla tekstu W FORMACIE HTML.
+
+  let prompt: string;
+
+  if (writersCount === 1) {
+    // JEDEN PISARZ - stary prompt (bez podziału)
+    prompt = `Jesteś kierownikiem projektu content. Określ strukturę i spis treści dla tekstu W FORMACIE HTML.
 
 TEMAT: ${text.topic}
 RODZAJ: ${text.textType}
@@ -996,7 +1041,6 @@ FORMAT WYJŚCIOWY: Czysty HTML (bez <!DOCTYPE>, <html>, <body>)
 
 ZADANIE:
 Przygotuj szczegółową strukturę HTML. Określ:
-
 1. TYTUŁ GŁÓWNY (w <h1>)
 ${
   includeIntro
@@ -1013,138 +1057,504 @@ ${includeIntro ? "6." : "5."} Elementy HTML: <strong>, <em>, <ul>, <ol>
 STRUKTURA:
 <h1>Tytuł Główny</h1>
 ${includeIntro ? "<p>Wstęp wprowadzający... (300-500 znaków)</p>" : ""}
-
 <h2>Sekcja 1 (X znaków)</h2>
 <p>Treść sekcji 1...</p>
-
 <h3>Podsekcja 1.1 (Y znaków)</h3>
 <p>Treść podsekcji...</p>
-
 [...więcej sekcji...]
-
 <p>Zakończenie podsumowujące...</p>
 
 Struktura musi sumować się do ${text.length} znaków (±10%).
 
 ODPOWIEDŹ - szczegółowa struktura HTML:`;
+  } else {
+    // ✅ WIELU PISARZY - PEŁNY PRZYKŁAD JSON DLA KAŻDEJ LICZBY
+    const lengthPerWriter = Math.floor(text.length / writersCount);
+
+    // ✅ GENERUJ PEŁNY PRZYKŁAD JSON (wszystkie obiekty)
+    const exampleAssignments = [];
+    for (let i = 1; i <= writersCount; i++) {
+      if (i === 1) {
+        // Pierwszy pisarz - H1 + ewentualnie wstęp + pierwsze sekcje
+        exampleAssignments.push(`    {
+      "writer": 1,
+      "sections": "${
+        includeIntro ? "H1 + Wstęp + Sekcje 1-2" : "H1 + Sekcje 1-2"
+      }",
+      "structure": "<h1>Tytuł Główny Tekstu</h1>${
+        includeIntro
+          ? "<p>Wstęp wprowadzający do tematu... (400 znaków)</p>"
+          : ""
+      }<h2>Sekcja 1: Wprowadzenie</h2><p>Opis wprowadzenia...</p><h3>Podsekcja 1.1</h3><p>...</p><h2>Sekcja 2: Podstawy</h2><p>...</p>",
+      "targetLength": ${lengthPerWriter}
+    }`);
+      } else if (i === writersCount) {
+        // Ostatni pisarz - ostatnie sekcje + zakończenie
+        const sectionStart = (i - 1) * 2 + 1;
+        const sectionEnd = i * 2;
+        exampleAssignments.push(`    {
+      "writer": ${i},
+      "sections": "Sekcje ${sectionStart}-${sectionEnd} + Zakończenie",
+      "structure": "<h2>Sekcja ${sectionStart}: Zaawansowane</h2><p>...</p><h2>Sekcja ${sectionEnd}: Podsumowanie</h2><p>...</p><p>Zakończenie: Podsumowanie całości... (300 znaków)</p>",
+      "targetLength": ${lengthPerWriter}
+    }`);
+      } else {
+        // Środkowi pisarze - środkowe sekcje
+        const sectionStart = (i - 1) * 2 + 1;
+        const sectionEnd = i * 2;
+        exampleAssignments.push(`    {
+      "writer": ${i},
+      "sections": "Sekcje ${sectionStart}-${sectionEnd}",
+      "structure": "<h2>Sekcja ${sectionStart}: Temat</h2><p>...</p><h3>Podsekcja ${sectionStart}.1</h3><p>...</p><h2>Sekcja ${sectionEnd}: Kolejny Temat</h2><p>...</p>",
+      "targetLength": ${lengthPerWriter}
+    }`);
+      }
+    }
+
+    prompt = `Jesteś kierownikiem projektu content. KRYTYCZNE ZADANIE: Podziel strukturę HTML na ${writersCount} RÓWNE CZĘŚCI dla pisarzy.
+
+TEMAT: ${text.topic}
+RODZAJ: ${text.textType}
+DŁUGOŚĆ: ${text.length} znaków
+JĘZYK: ${text.language}
+WYTYCZNE: ${text.guidelines || "brak"}
+PISARZY: ${writersCount}
+
+FORMAT ODPOWIEDZI - VALID JSON (bez komentarzy, bez \`\`\`):
+{
+  "fullStructure": "<h1>Tytuł</h1><h2>Sekcja 1</h2>...<h2>Sekcja N</h2><p>Zakończenie</p>",
+  "writerAssignments": [
+${exampleAssignments.join(",\n")}
+  ]
+}
+
+KRYTYCZNE ZASADY:
+
+1. MUSISZ UTWORZYĆ DOKŁADNIE ${writersCount} OBIEKTÓW w "writerAssignments"!
+
+2. Każdy obiekt to jeden pisarz:
+   - "writer": numer pisarza (1 do ${writersCount})
+   - "sections": krótki opis co pisze (np. "Sekcje 3-4")
+   - "structure": HTML TYLKO dla jego sekcji (np. "<h2>Sekcja 3</h2>...")
+   - "targetLength": ${lengthPerWriter}
+
+3. PODZIAŁ SEKCJI:
+   - Pisarz 1: ${
+     includeIntro ? "<h1> + <p>Wstęp</p> + " : "<h1> + "
+   }pierwsze sekcje (np. 1-2)
+   - Pisarze 2-${writersCount - 1}: środkowe sekcje (podzielone równo)
+   - Pisarz ${writersCount}: ostatnie sekcje + <p>Zakończenie</p>
+
+4. "fullStructure" = WSZYSTKIE sekcje od <h1> do zakończenia
+   "structure" dla każdego pisarza = TYLKO jego sekcje
+
+5. Każdy pisarz MUSI dostać RÓŻNE sekcje!
+   Pisarz 1: Sekcje A-B
+   Pisarz 2: Sekcje C-D (NIE A-B!)
+   Pisarz 3: Sekcje E-F (NIE A-B, NIE C-D!)
+
+PRZYKŁAD POPRAWNEJ ODPOWIEDZI dla ${writersCount} pisarzy:
+{
+  "fullStructure": "<h1>Pełny Tytuł</h1>${
+    includeIntro ? "<p>Wstęp...</p>" : ""
+  }<h2>Sekcja 1</h2>...<h2>Sekcja ${writersCount * 2}</h2><p>Zakończenie</p>",
+  "writerAssignments": [
+${exampleAssignments.join(",\n")}
+  ]
+}
+
+ODPOWIEDŹ (TYLKO VALID JSON, BEZ \`\`\`json):`;
+  }
 
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-5-20250929",
-    max_tokens: 4000,
+    max_tokens: writersCount === 1 ? 4000 : 8000,
     temperature: 0.5,
     messages: [{ role: "user", content: prompt }],
   });
+
+  const response =
+    message.content[0].type === "text" ? message.content[0].text : "";
+
+  // ZAPISZ DO BAZY
   const { PrismaClient } = await import("@prisma/client");
   const prisma = new PrismaClient();
   await prisma.text.update({
     where: { id: text.id },
     data: {
       structurePrompt: prompt,
-      structureResponse:
-        message.content[0].type === "text" ? message.content[0].text : "",
+      structureResponse: response,
     },
   });
   await prisma.$disconnect();
-  return message.content[0].type === "text" ? message.content[0].text : "";
+
+  // PARSE ODPOWIEDZI
+  if (writersCount === 1) {
+    return {
+      fullStructure: response,
+      writerAssignments: [
+        {
+          writer: 1,
+          sections: "Cały tekst",
+          structure: response,
+          targetLength: text.length,
+        },
+      ],
+    };
+  } else {
+    try {
+      let cleanResponse = response
+        .replace(/```json\s*/g, "")
+        .replace(/```\s*/g, "")
+        .trim();
+
+      const structureData = JSON.parse(cleanResponse);
+
+      // ✅ WALIDACJA - czy dostaliśmy wszystkich pisarzy?
+      if (structureData.writerAssignments.length !== writersCount) {
+        throw new Error(
+          `Kierownik zwrócił ${structureData.writerAssignments.length} pisarzy, oczekiwano ${writersCount}`
+        );
+      }
+
+      console.log(
+        `\n📋 KIEROWNIK PODZIELIŁ STRUKTURĘ NA ${writersCount} PISARZY:`
+      );
+      structureData.writerAssignments.forEach((assignment: any) => {
+        console.log(
+          `   Pisarz ${assignment.writer}: ${assignment.sections} (${assignment.targetLength} znaków)`
+        );
+      });
+      console.log();
+
+      return structureData;
+    } catch (error) {
+      console.error("❌ Błąd parsowania JSON od kierownika:", error);
+      console.error("Response:", response.substring(0, 500));
+
+      // FALLBACK
+      console.warn("⚠️ Używam fallback - równy podział struktury");
+      const sectionPerWriter = Math.floor(text.length / writersCount);
+      return {
+        fullStructure: response,
+        writerAssignments: Array.from({ length: writersCount }, (_, i) => ({
+          writer: i + 1,
+          sections: `Część ${i + 1}/${writersCount}`,
+          structure: response,
+          targetLength: sectionPerWriter,
+        })),
+      };
+    }
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🔧 WERYFIKACJA ZAKOŃCZENIA - PRZYTNIJ TYLKO JEŚLI URWANY
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function verifyAndFixEnding(
+  content: string,
+  isLastPart: boolean = false,
+  textTopic: string = ""
+): Promise<{ fixed: string; wasTruncated: boolean; reason: string }> {
+  console.log(`\n🔍 WERYFIKACJA ZAKOŃCZENIA TEKSTU...`);
+  console.log(`   Długość: ${content.length} znaków`);
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // SPRAWDŹ CZY PRAWIDŁOWO ZAKOŃCZONY
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  // Tagi zamykające
+  const closingTags = [
+    "</p>",
+    "</ul>",
+    "</ol>",
+    "</table>",
+    "</h2>",
+    "</h3>",
+    "</li>",
+    "</td>",
+    "</tr>",
+    "</div>",
+  ];
+  const endsWithClosingTag = closingTags.some((tag) =>
+    content.trimEnd().endsWith(tag)
+  );
+
+  // Urwany tag?
+  const lastOpenBracket = content.lastIndexOf("<");
+  const lastCloseBracket = content.lastIndexOf(">");
+  const hasUnclosedTag = lastOpenBracket > lastCloseBracket;
+
+  const isProperlyClosed = endsWithClosingTag && !hasUnclosedTag;
+
+  console.log(`   📊 ANALIZA:`);
+  console.log(
+    `      Kończy się tagiem zamykającym: ${endsWithClosingTag ? "✅" : "❌"}`
+  );
+  console.log(`      Ma urwany tag: ${hasUnclosedTag ? "❌" : "✅"}`);
+  console.log(
+    `      Ostatnie 100 znaków: ...${content.substring(content.length - 100)}`
+  );
+
+  // ✅ PRAWIDŁOWO ZAKOŃCZONY - NIE RUSZAJ!
+  if (isProperlyClosed) {
+    console.log(`\n   ✅✅✅ TEKST PRAWIDŁOWO ZAKOŃCZONY - ZERO ZMIAN!`);
+    console.log(`   📏 Zachowano ${content.length} znaków\n`);
+    return {
+      fixed: content,
+      wasTruncated: false,
+      reason: "properly_closed",
+    };
+  }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // URWANY - ZNAJDŹ OSTATNI PEŁNY ELEMENT
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  console.log(`\n   ⚠️ TEKST URWANY - szukam ostatniego pełnego elementu...`);
+
+  let cutPos = content.length;
+  let cutReason = "unknown";
+
+  // 1. Ostatni </p>
+  const lastParagraph = content.lastIndexOf("</p>");
+  if (lastParagraph > content.length * 0.5) {
+    // minimum 50% tekstu
+    cutPos = lastParagraph + 4;
+    cutReason = "paragraph";
+    console.log(`   🔹 Znaleziono </p> na pozycji ${cutPos}`);
+  }
+  // 2. Ostatni </li> (jeśli brak </p>)
+  else {
+    const lastListItem = content.lastIndexOf("</li>");
+    if (lastListItem > content.length * 0.5) {
+      cutPos = lastListItem + 5;
+      cutReason = "list_item";
+      console.log(`   🔹 Znaleziono </li> na pozycji ${cutPos}`);
+    }
+    // 3. Ostatnie zdanie
+    else {
+      const lastSentence = content.lastIndexOf(". ");
+      if (lastSentence > content.length * 0.5) {
+        cutPos = lastSentence + 2;
+        cutReason = "sentence";
+        console.log(`   🔹 Znaleziono zdanie na pozycji ${cutPos}`);
+      }
+      // 4. Ostatni tag (emergency)
+      else {
+        const lastTag = content.lastIndexOf(">");
+        if (lastTag > 0) {
+          cutPos = lastTag + 1;
+          cutReason = "tag";
+          console.log(`   🔹 Znaleziono tag na pozycji ${cutPos}`);
+        }
+      }
+    }
+  }
+
+  let fixed = content.substring(0, cutPos);
+
+  // Dodaj zakończenie jeśli ostatnia część
+  if (isLastPart && textTopic) {
+    fixed += `\n\n<p><strong>Podsumowanie:</strong> Przedstawiono kluczowe aspekty tematu "${textTopic}".</p>`;
+    console.log(`   ✅ Dodano zakończenie`);
+  }
+
+  console.log(`\n   ✂️ PRZYCIĘTO URWANĄ CZĘŚĆ:`);
+  console.log(`      Było: ${content.length} znaków`);
+  console.log(`      Jest: ${fixed.length} znaków`);
+  console.log(`      Usunięto: ${content.length - fixed.length} znaków`);
+  console.log(`      Metoda: ${cutReason}\n`);
+
+  return {
+    fixed,
+    wasTruncated: true,
+    reason: cutReason,
+  };
 }
 
 // Pisarz - generuje treść na podstawie struktury
 async function generateWithStructure(
   text: any,
-  structure: string,
+  writerAssignment: {
+    writer: number;
+    sections: string;
+    structure: string;
+    targetLength: number;
+  },
   sources: string,
-  part?: { number: number; total: number; previousContent?: string }
+  part?: {
+    number: number;
+    total: number;
+    previousContent?: string;
+    completedSections?: string[];
+  }
 ): Promise<string> {
-  const partInfo = part
-    ? `PISZESZ CZĘŚĆ ${part.number} z ${part.total}
-${
-  part.previousContent
-    ? `\nPOPRZEDNIA CZĘŚĆ (ostatnie 5000 znaków):\n${part.previousContent.substring(
-        Math.max(0, part.previousContent.length - 5000)
-      )}\n\nKONTYNUUJ PŁYNNIE:`
-    : ""
-}`
-    : "";
-
   const includeIntro = text.length >= 5000;
   const hasUserSources = sources.includes("ŹRÓDŁA PRIORYTETOWE");
 
-  // 🔒 OBLICZ DŁUGOŚĆ DLA TEJ CZĘŚCI
-  const partLength = part ? Math.floor(text.length / part.total) : text.length;
+  const partLength = writerAssignment.targetLength;
   const maxTokens = calculateMaxTokens(partLength);
-  const minLength = Math.floor(partLength * 0.9); // trochę luźniej dla części
-  const maxLength = Math.ceil(partLength * 1.1);
 
-  const prompt = `╔═══════════════════════════════════════════════════════════════╗
-║  🔴 ABSOLUTNY WYMÓG: DOKŁADNA DŁUGOŚĆ ${
-    part ? `CZĘŚCI ${part.number}` : "TEKSTU"
-  } 🔴  ║
-╚═══════════════════════════════════════════════════════════════╝
+  // ✅ BARDZO AGRESYWNE CELE
+  const minLength = Math.floor(partLength * 0.9); // 90%
+  const targetLength = Math.ceil(partLength * 1.0); // ✅ 100% (było 110%)
+  const maxLength = Math.ceil(partLength * 1.05); // ✅ 105% (było 115%)
 
-${partInfo}
+  // ✅ OBLICZ WYMAGANE LISTY I TABELE DLA TEJ CZĘŚCI
+  const requiredLists = Math.max(0, Math.floor(partLength / 50000));
+  const requiredTables = Math.max(1, Math.floor(partLength / 15000));
 
-🔴🔴🔴 LIMIT TEJ CZĘŚCI: ${partLength} ZNAKÓW (±10%) 🔴🔴🔴
-      MINIMUM: ${minLength} znaków
-      MAXIMUM: ${maxLength} znaków
-
-⚠️ PRZEKROCZENIE = ZADANIE NIEUDANE! ⚠️
-
+  // ✅ INFORMACJA O POPRZEDNICH CZĘŚCIACH
+  const contextInfo = part
+    ? `
+═══════════════════════════════════════════════════════════════
+🔴 PISZESZ CZĘŚĆ ${part.number} z ${part.total} 🔴
 ═══════════════════════════════════════════════════════════════
 
+${
+  part.completedSections && part.completedSections.length > 0
+    ? `✅ JUŻ NAPISANE (przez poprzednich pisarzy):
+${part.completedSections.map((s) => `   - ${s}`).join("\n")}
+
+⚠️⚠️⚠️ NIE POWTARZAJ tych sekcji!
+⚠️⚠️⚠️ NIE PISZ ponownie tych tematów!
+`
+    : "To pierwsza część - zacznij od początku."
+}
+
+${
+  part.previousContent
+    ? `📄 OSTATNIE 5000 ZNAKÓW POPRZEDNIEJ CZĘŚCI:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${part.previousContent.substring(
+  Math.max(0, part.previousContent.length - 5000)
+)}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚠️ KONTYNUUJ PŁYNNIE od tego miejsca!
+`
+    : ""
+}
+`
+    : "";
+
+  const prompt = `╔═══════════════════════════════════════════════════════════════╗
+║  🎯 CEL: ${writerAssignment.sections} - ${targetLength} ZNAKÓW! 🎯  ║
+╚═══════════════════════════════════════════════════════════════╝
+
+${contextInfo}
+
+🎯 CEL TEJ CZĘŚCI: ${targetLength} znaków
+   MINIMUM: ${minLength} znaków
+   MAKSIMUM: ${maxLength} znaków
+
+⚠️⚠️⚠️ Lepiej ${targetLength} niż ${minLength}!
+
+═══════════════════════════════════════════════════════════════
+📋 WYMAGANE ELEMENTY DLA TEJ CZĘŚCI:
+═══════════════════════════════════════════════════════════════
+
+${
+  requiredLists > 0
+    ? `✅ OBOWIĄZKOWE LISTY: ${requiredLists}
+   - Każda lista: <ul> lub <ol> z 5-7 elementami
+   - Każdy <li>: 50-100 znaków
+`
+    : ""
+}
+
+✅ OBOWIĄZKOWE TABELE: ${requiredTables}
+   - Każda tabela: 4+ kolumny × 6-8 wierszy
+   - Użyj <table>, <thead>, <tbody>, <tr>, <th>, <td>
+   - Tabela dodaje ~1000-1500 znaków!
+
+═══════════════════════════════════════════════════════════════
 KRYTYCZNE ZASADY FORMATOWANIA HTML:
+═══════════════════════════════════════════════════════════════
+
 1. Pisz TYLKO czysty HTML - bez <!DOCTYPE>, <html>, <head>, <body>
 2. ${
     part?.number === 1
       ? "Rozpocznij od: <h1>Tytuł</h1>"
-      : "Kontynuuj od poprzedniej części"
+      : "Kontynuuj od poprzedniej części - NIE dodawaj <h1>"
   }
 3. ${
     includeIntro && part?.number === 1
-      ? "Po tytule wstęp: <p>Wstęp...</p>"
+      ? "Po tytule wstęp: <p>Wstęp... (500-600 znaków)</p>"
       : part?.number === 1
       ? "Po tytule BEZPOŚREDNIO treść"
       : ""
   }
-4. Używaj <h2>, <h3>, <p>, <ul>, <ol>, <strong>, <em>
+4. Używaj <h2>, <h3>, <p>, <ul>, <ol>, <table>, <strong>, <em>
 5. ${
     part?.number === part?.total
-      ? "Zakończ na </p>"
-      : "Zakończ na pełnym tagu (</p>, </li>, </ul>)"
+      ? "Zakończ na </p> + dodaj ZAKOŃCZENIE (400 znaków)"
+      : "Zakończ na pełnym tagu"
   }
 
+═══════════════════════════════════════════════════════════════
 ZASADY TREŚCI:
+═══════════════════════════════════════════════════════════════
+
 1. Język: ${text.language}
 2. ZAKAZ kopiowania ze źródeł
-3. ZAKAZ powtórzeń
-4. Oryginalny, wartościowy
-5. Ścisłe trzymanie struktury HTML
-6. 🔴 KONTROLUJ DŁUGOŚĆ - ${partLength} znaków! 🔴
+3. 🔴 ZAKAZ POWTÓRZEŃ ${
+    part && part.completedSections
+      ? `- już napisane: ${part.completedSections.join(", ")}`
+      : ""
+  }
+4. Oryginalny, wartościowy, szczegółowy
+5. 🎯 DĄŻYSZ DO ${targetLength} ZNAKÓW!
+6. 📋 DODAJ ${requiredTables} tabel${
+    requiredLists > 0 ? ` i ${requiredLists} list` : ""
+  }!
 
 ${
   hasUserSources
     ? `
 ⚠️ PRIORYTET: ŹRÓDŁA UŻYTKOWNIKA
 - Użyj ich W PIERWSZEJ KOLEJNOŚCI
-- Google tylko uzupełnienie
 `
     : ""
 }
 
+⚠️⚠️⚠️ KRYTYCZNE - ZARZĄDZANIE DŁUGOŚCIĄ:
+═══════════════════════════════════════════════════════════════
+1. Monitoruj swoją długość podczas pisania
+2. Jeśli zbliżasz się do ${targetLength} znaków:
+   ✅ ZAKOŃCZ na sensownym miejscu (koniec akapitu lub sekcji)
+   ✅ Dodaj krótkie podsumowanie jeśli to ostatnia część
+   ✅ NIE ZOSTAWIAJ urwanego zdania!
+3. LEPIEJ SKOŃCZYĆ przy ${Math.floor(
+    targetLength * 0.95
+  )} niż być urwanym przy ${maxLength}!
+4. ${
+    part?.number === part?.total
+      ? "To OSTATNIA CZĘŚĆ - MUSISZ dodać ZAKOŃCZENIE!"
+      : ""
+  }
+
+═══════════════════════════════════════════════════════════════
+🎯 TWOJE ZADANIE - NAPISZ ${writerAssignment.sections}:
+═══════════════════════════════════════════════════════════════
+
+${writerAssignment.structure}
+
 ${
-  part
-    ? `6. ${
-        part.previousContent
-          ? "KONTYNUUJ płynnie - NIE powtarzaj"
-          : "To pierwsza część - zacznij od <h1>"
-      }`
+  part && part.number > 1
+    ? `
+⚠️⚠️⚠️ KRYTYCZNE - KONTYNUACJA ⚠️⚠️⚠️
+Poprzedni pisarze już napisali: ${
+        part.completedSections ? part.completedSections.join(", ") : "początek"
+      }
+TY piszesz TYLKO: ${writerAssignment.sections}
+NIE ZACZYNAJ od początku!
+NIE POWTARZAJ już napisanych sekcji!
+KONTYNUUJ od miejsca gdzie skończył poprzedni pisarz!
+`
     : ""
 }
-
-═══════════════════════════════════════════════════════════════
-STRUKTURA HTML DO REALIZACJI:
-═══════════════════════════════════════════════════════════════
-
-${structure}
 
 ═══════════════════════════════════════════════════════════════
 ${hasUserSources ? "MATERIAŁY (UŻYTKOWNIK + GOOGLE):" : "ŹRÓDŁA:"}
@@ -1153,52 +1563,52 @@ ${hasUserSources ? "MATERIAŁY (UŻYTKOWNIK + GOOGLE):" : "ŹRÓDŁA:"}
 ${sources.substring(0, 50000)}
 
 ═══════════════════════════════════════════════════════════════
-🔴 PRZYPOMNIENIE:
-═══════════════════════════════════════════════════════════════
-
-${
-  part ? `CZĘŚĆ ${part.number}/${part.total}` : "TEKST"
-}: ${partLength} znaków (±10%)
-ZAKRES: ${minLength}-${maxLength} znaków
-PISZ ZWIĘŹLE!
-
-${
-  part
-    ? `NAPISZ CZĘŚĆ ${part.number}/${part.total} W HTML (${minLength}-${maxLength} znaków):`
-    : `NAPISZ TEKST W HTML (${minLength}-${maxLength} znaków):`
-}`;
+🎯 NAPISZ ${
+    writerAssignment.sections
+  } (${targetLength} znaków, ${requiredTables} tabel):
+═══════════════════════════════════════════════════════════════`;
 
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-5-20250929",
-    max_tokens: maxTokens, // 🔒 UŻYJ OBLICZONEGO
+    max_tokens: maxTokens,
     temperature: 0.7,
     messages: [{ role: "user", content: prompt }],
   });
 
-  let response =
+  const response =
     message.content[0].type === "text" ? message.content[0].text : "";
 
-  // 🔒 POST-PROCESSING
   const actualLength = response.length;
-  console.log(
-    `\n📏 WERYFIKACJA DŁUGOŚCI ${part ? `CZĘŚCI ${part.number}` : ""}:`
-  );
-  console.log(`   Oczekiwano: ${partLength} ±10% (${minLength}-${maxLength})`);
+  console.log(`\n📏 DŁUGOŚĆ WYGENEROWANEJ TREŚCI:`);
+  console.log(`   Cel: ${targetLength} znaków`);
   console.log(`   Otrzymano: ${actualLength} znaków`);
 
-  if (actualLength > maxLength) {
-    console.warn(`⚠️ ZA DŁUGIE! Przycinam...`);
-    const cutPoint = response.lastIndexOf("</p>", maxLength);
-    if (cutPoint > minLength && cutPoint !== -1) {
-      response = response.substring(0, cutPoint + 4);
-      console.log(`   ✂️ Przycięto do ${response.length} znaków`);
-    }
-  } else if (actualLength < minLength) {
-    console.warn(`⚠️ ZA KRÓTKIE! (${actualLength} < ${minLength})`);
+  // ✅ TYLKO WERYFIKACJA CZY PRAWIDŁOWO ZAKOŃCZONY
+  const verification = await verifyAndFixEnding(
+    response,
+    part?.number === part?.total,
+    text.topic
+  );
+
+  const finalResponse = verification.fixed;
+
+  // Logowanie wyników
+  if (!verification.wasTruncated) {
+    console.log(
+      `   ✅ Prawidłowo zakończony - zachowano ${actualLength} znaków`
+    );
+  } else {
+    console.log(
+      `   ✂️ Poprawiono urwaną część - ${finalResponse.length} znaków`
+    );
   }
 
-  const inRange = response.length >= minLength && response.length <= maxLength;
-  console.log(`   ${inRange ? "✅ OK" : "⚠️ POZA ZAKRESEM"}\n`);
+  // Sprawdź czy nie za krótki
+  if (actualLength < minLength) {
+    console.warn(
+      `   ⚠️ UWAGA: Tekst krótszy niż minimum (${actualLength} < ${minLength})`
+    );
+  }
 
   // ZAPISZ
   const { PrismaClient } = await import("@prisma/client");
@@ -1210,8 +1620,10 @@ ${
   const existingWriterResponses = existingText?.writerResponses
     ? JSON.parse(existingText.writerResponses)
     : [];
+
   existingWriterPrompts.push(prompt);
-  existingWriterResponses.push(response);
+  existingWriterResponses.push(finalResponse);
+
   await prisma.text.update({
     where: { id: text.id },
     data: {
@@ -1221,7 +1633,7 @@ ${
   });
   await prisma.$disconnect();
 
-  return response;
+  return finalResponse;
 }
 
 // Główna funkcja generowania treści
@@ -1285,83 +1697,88 @@ export async function generateContent(textId: string) {
 
     let finalContent = "";
 
-    // ŚCIEŻKA 1: < 10 000 znaków - bezpośrednio pisarz
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // ŚCIEŻKA 1: < 10,000 znaków - JEDEN PISARZ (bez zmian)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     if (text.length < 10000) {
       console.log("📝 Tryb: Bezpośrednie pisanie HTML (< 10k znaków)");
       finalContent = await generateShortContent(text, sources);
       console.log(`✅ Wygenerowano ${finalContent.length} znaków HTML`);
     }
-    // ŚCIEŻKA 2: 10 000 - 50 000 znaków - kierownik + pisarz
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // ŚCIEŻKA 2: 10k-50k znaków - KIEROWNIK + 1 PISARZ
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     else if (text.length < 50000) {
       console.log("📝 Tryb: Kierownik + Pisarz HTML (10k-50k znaków)");
       console.log("🔹 Kierownik: Tworzenie struktury HTML...");
-      const structure = await generateStructure(text);
+
+      const structureData = await generateStructure(text, 1);
       console.log(`✅ Struktura HTML utworzona`);
 
       console.log("🔹 Pisarz: Generowanie treści HTML...");
-      finalContent = await generateWithStructure(text, structure, sources);
+      finalContent = await generateWithStructure(
+        text,
+        structureData.writerAssignments[0],
+        sources
+      );
       console.log(`✅ Wygenerowano ${finalContent.length} znaków HTML`);
     }
-    // ŚCIEŻKA 3: 50 000 - 100 000 znaków - kierownik + 2 pisarzy
-    else if (text.length < 100000) {
-      console.log("📝 Tryb: Kierownik + 2 Pisarzy HTML (50k-100k znaków)");
-      console.log("🔹 Kierownik: Tworzenie struktury HTML...");
-      const structure = await generateStructure(text);
-      console.log(`✅ Struktura HTML utworzona`);
-
-      console.log("🔹 Pisarz 1/2: Generowanie części 1 HTML...");
-      const part1 = await generateWithStructure(text, structure, sources, {
-        number: 1,
-        total: 2,
-      });
-      console.log(`✅ Część 1: ${part1.length} znaków HTML`);
-
-      console.log("🔹 Pisarz 2/2: Generowanie części 2 HTML...");
-      const part2 = await generateWithStructure(text, structure, sources, {
-        number: 2,
-        total: 2,
-        previousContent: part1,
-      });
-      console.log(`✅ Część 2: ${part2.length} znaków HTML`);
-
-      finalContent = part1 + "\n\n" + part2;
-      console.log(`✅ Łącznie: ${finalContent.length} znaków HTML`);
-    }
-    // ŚCIEŻKA 4: 100 000 - 150 000 znaków - kierownik + 3 pisarzy
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // ŚCIEŻKA 3: >= 50k znaków - KIEROWNIK + DYNAMICZNI PISARZE
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     else {
-      console.log("📝 Tryb: Kierownik + 3 Pisarzy HTML (100k-150k znaków)");
-      console.log("🔹 Kierownik: Tworzenie struktury HTML...");
-      const structure = await generateStructure(text);
-      console.log(`✅ Struktura HTML utworzona`);
+      const writersNeeded = Math.ceil(text.length / 48000);
+      const maxWriters = Math.min(writersNeeded, 7);
 
-      console.log("🔹 Pisarz 1/3: Generowanie części 1 HTML...");
-      const part1 = await generateWithStructure(text, structure, sources, {
-        number: 1,
-        total: 3,
-      });
-      console.log(`✅ Część 1: ${part1.length} znaków HTML`);
+      console.log(
+        `📝 Tryb: Kierownik + ${maxWriters} Pisarzy HTML (${text.length.toLocaleString()} znaków)`
+      );
 
-      console.log("🔹 Pisarz 2/3: Generowanie części 2 HTML...");
-      const part2 = await generateWithStructure(text, structure, sources, {
-        number: 2,
-        total: 3,
-        previousContent: part1,
-      });
-      console.log(`✅ Część 2: ${part2.length} znaków HTML`);
+      console.log("🔹 Kierownik: Tworzenie struktury i podziału...");
+      const structureData = await generateStructure(text, maxWriters);
+      console.log(`✅ Struktura podzielona na ${maxWriters} pisarzy`);
 
-      console.log("🔹 Pisarz 3/3: Generowanie części 3 HTML...");
-      const part3 = await generateWithStructure(text, structure, sources, {
-        number: 3,
-        total: 3,
-        previousContent: part1 + "\n\n" + part2,
-      });
-      console.log(`✅ Część 3: ${part3.length} znaków HTML`);
+      const parts: string[] = [];
+      const completedSections: string[] = [];
 
-      finalContent = part1 + "\n\n" + part2 + "\n\n" + part3;
-      console.log(`✅ Łącznie: ${finalContent.length} znaków HTML`);
+      // ✅ GENERUJ CZĘŚCI SEKWENCYJNIE Z INFORMACJĄ CO JUŻ NAPISANE
+      for (let i = 0; i < maxWriters; i++) {
+        const assignment = structureData.writerAssignments[i];
+
+        console.log(
+          `🔹 Pisarz ${assignment.writer}/${maxWriters}: ${assignment.sections}...`
+        );
+
+        const previousContent =
+          parts.length > 0
+            ? parts
+                .join("\n\n")
+                .substring(Math.max(0, parts.join("\n\n").length - 5000))
+            : undefined;
+
+        const part = await generateWithStructure(text, assignment, sources, {
+          number: assignment.writer,
+          total: maxWriters,
+          previousContent,
+          completedSections: [...completedSections], // ✅ LISTA SEKCJI JUŻ NAPISANYCH
+        });
+
+        console.log(
+          `✅ Część ${assignment.writer}: ${part.length} znaków HTML`
+        );
+        parts.push(part);
+
+        // ✅ DODAJ DO LISTY UKOŃCZONYCH SEKCJI
+        completedSections.push(assignment.sections);
+      }
+
+      finalContent = parts.join("\n\n");
+      console.log(
+        `✅ Łącznie: ${finalContent.length} znaków HTML (${maxWriters} części)`
+      );
     }
 
-    // Zapisz wygenerowaną treść
+    // Zapisz wygenerowaną treść (bez zmian)
     const existingData = JSON.parse(text.content || "{}");
     existingData.generatedContent = finalContent;
     existingData.generatedAt = new Date().toISOString();
