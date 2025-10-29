@@ -46,7 +46,29 @@ export const orderRoutes = async (fastify: FastifyInstance) => {
       orderBy: { createdAt: "desc" },
     });
 
-    return orders;
+    // ✅ TRANSFORMUJ: wyciągnij generatedContent z content JSON
+    const transformedOrders = orders.map((order) => ({
+      ...order,
+      texts: order.texts.map((text) => {
+        let generatedContent = null;
+        if (text.content) {
+          try {
+            const contentData = JSON.parse(text.content);
+            generatedContent = contentData.generatedContent || null;
+          } catch (error) {
+            console.error(`Failed to parse content for text ${text.id}`);
+          }
+        }
+        return {
+          ...text,
+          generatedContent,
+          // Nie wysyłaj całego content (za duży)
+          content: undefined,
+        };
+      }),
+    }));
+
+    return transformedOrders;
   });
 
   // Get single order
@@ -68,7 +90,28 @@ export const orderRoutes = async (fastify: FastifyInstance) => {
       return reply.code(404).send({ error: "Order not found" });
     }
 
-    return order;
+    // ✅ TRANSFORMUJ: wyciągnij generatedContent
+    const transformedOrder = {
+      ...order,
+      texts: order.texts.map((text) => {
+        let generatedContent = null;
+        if (text.content) {
+          try {
+            const contentData = JSON.parse(text.content);
+            generatedContent = contentData.generatedContent || null;
+          } catch (error) {
+            console.error(`Failed to parse content for text ${text.id}`);
+          }
+        }
+        return {
+          ...text,
+          generatedContent,
+          content: undefined,
+        };
+      }),
+    };
+
+    return transformedOrder;
   });
 
   // Create order - ZAKTUALIZOWANE z obsługą plików
@@ -197,6 +240,19 @@ export const orderRoutes = async (fastify: FastifyInstance) => {
           }
         }
 
+        // ✅ PRZYGOTUJ DANE SEO
+        let seoKeywordsJson = null;
+        let seoLinksJson = null;
+
+        if (text.seoData) {
+          if (text.seoData.keywords && text.seoData.keywords.length > 0) {
+            seoKeywordsJson = JSON.stringify(text.seoData.keywords);
+          }
+          if (text.seoData.links && text.seoData.links.length > 0) {
+            seoLinksJson = JSON.stringify(text.seoData.links);
+          }
+        }
+
         return {
           topic: text.topic,
           length: characters,
@@ -208,6 +264,8 @@ export const orderRoutes = async (fastify: FastifyInstance) => {
           guidelines: text.guidelines,
           price,
           userSources: userSourcesJson,
+          seoKeywords: seoKeywordsJson,
+          seoLinks: seoLinksJson,
         };
       })
     );

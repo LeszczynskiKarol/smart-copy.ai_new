@@ -16,13 +16,21 @@ import {
   Link as LinkIcon,
   Upload,
   X,
+  ChevronDown,
+  Shield,
   Info,
   Package,
   Edit2,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { apiClient } from "@/lib/api";
-import { TEXT_TYPES, LANGUAGES, type LengthUnit } from "@/types/order";
+import {
+  TEXT_TYPES,
+  LANGUAGES,
+  type LengthUnit,
+  type SeoLink,
+  calculateMaxLinks,
+} from "@/types/order";
 
 const ORDER_DRAFT_KEY = "smart-copy-order-draft";
 const MAX_TEXTS_PER_ORDER = 50; // ← NOWY LIMIT
@@ -52,6 +60,17 @@ const textSchema = z
     textType: z.string().optional(),
     customType: z.string().optional(),
     guidelines: z.string().optional(),
+    seoData: z
+      .object({
+        keywords: z.array(z.string()),
+        links: z.array(
+          z.object({
+            url: z.string(),
+            anchor: z.string(),
+          })
+        ),
+      })
+      .optional(),
     userSources: z
       .object({
         urls: z.array(z.string()),
@@ -106,12 +125,21 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
   const [texts, setTexts] = useState<TextFormValues[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
-
+  const [noRefundConsent, setNoRefundConsent] = useState(false);
+  const [showLegalInfo, setShowLegalInfo] = useState(false);
   // MODAL ŹRÓDEŁ
   const [showSourcesModal, setShowSourcesModal] = useState(false);
   const [urlInput, setUrlInput] = useState("");
   const [urls, setUrls] = useState<string[]>([]);
   const [files, setFiles] = useState<File[]>([]);
+
+  // SEO
+  const [showSeoModal, setShowSeoModal] = useState(false);
+  const [seoKeywordInput, setSeoKeywordInput] = useState("");
+  const [seoKeywords, setSeoKeywords] = useState<string[]>([]);
+  const [seoLinks, setSeoLinks] = useState<SeoLink[]>([]);
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkAnchor, setLinkAnchor] = useState("");
 
   const {
     register,
@@ -131,6 +159,7 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
       customType: "",
       guidelines: "",
       userSources: { urls: [], files: [] },
+      seoData: { keywords: [], links: [] },
     },
   });
 
@@ -168,10 +197,13 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
     }
   }, []);
 
-  const watchedTopic = watch("topic", ""); // ← DODAJ
+  const watchedTopic = watch("topic", "");
   const watchedLength = watch("length", 1);
   const watchedUnit = watch("lengthUnit", "PAGES");
   const watchedTextType = watch("textType", "");
+  // ✅ OBLICZ LIMIT LINKÓW
+  const maxLinks = calculateMaxLinks(watchedLength, watchedUnit);
+  const canAddMoreLinks = seoLinks.length < maxLinks;
 
   // ✅ SPRAWDŹ CZY FORMULARZ WYPEŁNIONY (min 3 znaki w temacie)
   const isFormFilled = watchedTopic && watchedTopic.trim().length >= 3;
@@ -185,6 +217,83 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
       normalized = "https://" + normalized;
     }
     return normalized;
+  };
+
+  const handleAddKeyword = () => {
+    const trimmed = seoKeywordInput.trim();
+    if (!trimmed) return;
+
+    if (seoKeywords.includes(trimmed.toLowerCase())) {
+      toast.error("Ta fraza już została dodana");
+      return;
+    }
+
+    if (seoKeywords.length >= 10) {
+      toast.error("Maksymalnie 10 fraz kluczowych");
+      return;
+    }
+
+    setSeoKeywords([...seoKeywords, trimmed]);
+    setSeoKeywordInput("");
+    toast.success("Fraza dodana");
+  };
+
+  const handleRemoveKeyword = (index: number) => {
+    setSeoKeywords(seoKeywords.filter((_, i) => i !== index));
+    toast.success("Fraza usunięta");
+  };
+
+  const normalizeLinkUrl = (url: string): string => {
+    let normalized = url.trim();
+
+    // ✅ Usuń trailing slash
+    normalized = normalized.replace(/\/+$/, "");
+
+    // ✅ Dodaj https:// jeśli brak protokołu
+    if (
+      !normalized.startsWith("http://") &&
+      !normalized.startsWith("https://")
+    ) {
+      normalized = "https://" + normalized;
+    }
+
+    return normalized;
+  };
+
+  const handleAddLink = () => {
+    const trimmedUrl = linkUrl.trim();
+    const trimmedAnchor = linkAnchor.trim();
+
+    if (!trimmedUrl || !trimmedAnchor) {
+      toast.error("Podaj URL i anchor");
+      return;
+    }
+
+    // ✅ UŻYJ NORMALIZACJI
+    const normalizedUrl = normalizeLinkUrl(trimmedUrl);
+
+    try {
+      new URL(normalizedUrl);
+    } catch {
+      toast.error("Nieprawidłowy URL");
+      return;
+    }
+
+    if (!canAddMoreLinks) {
+      toast.error(`Maksymalnie ${maxLinks} linków dla tej długości tekstu`);
+      return;
+    }
+
+    // ✅ ZAPISZ ZNORMALIZOWANY URL
+    setSeoLinks([...seoLinks, { url: normalizedUrl, anchor: trimmedAnchor }]);
+    setLinkUrl("");
+    setLinkAnchor("");
+    toast.success("Link dodany");
+  };
+
+  const handleRemoveLink = (index: number) => {
+    setSeoLinks(seoLinks.filter((_, i) => i !== index));
+    toast.success("Link usunięty");
   };
 
   const isDuplicateUrl = (url: string): boolean => {
@@ -395,38 +504,64 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
     setShowSourcesModal(false);
   };
 
-  const handleEditText = (index: number) => {
-    const textToEdit = texts[index];
+  const handleOpenSeoModal = () => {
+    setShowSeoModal(true);
+  };
 
-    reset({
-      topic: textToEdit.topic,
-      length: textToEdit.length,
-      lengthUnit: textToEdit.lengthUnit,
-      language: textToEdit.language,
-      textType: textToEdit.textType || "",
-      customType: textToEdit.customType || "",
-      guidelines: textToEdit.guidelines || "",
-      userSources: textToEdit.userSources || { urls: [], files: [] },
-    });
-
-    if (textToEdit.userSources) {
-      setUrls(textToEdit.userSources.urls || []);
-      setFiles(textToEdit.userSources.files || []);
+  const handleSaveSeo = () => {
+    // Dodaj frazę z inputa jeśli jest wpisana
+    if (seoKeywordInput.trim()) {
+      const trimmed = seoKeywordInput.trim();
+      if (
+        !seoKeywords.some((k) => k.toLowerCase() === trimmed.toLowerCase()) &&
+        seoKeywords.length < 10
+      ) {
+        setSeoKeywords([...seoKeywords, trimmed]);
+      }
     }
 
-    setEditingIndex(index);
-    toast(`Edytujesz: ${textToEdit.topic}`, { icon: "✏️" });
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    // Dodaj link z inputów jeśli są oba pola wypełnione
+    if (linkUrl.trim() && linkAnchor.trim()) {
+      const normalizedUrl = normalizeLinkUrl(linkUrl.trim());
+      try {
+        new URL(normalizedUrl);
+        if (seoLinks.length < maxLinks) {
+          setSeoLinks([
+            ...seoLinks,
+            { url: normalizedUrl, anchor: linkAnchor.trim() },
+          ]);
+        }
+      } catch (error) {
+        console.warn("Nieprawidłowy URL, pomijam");
+      }
+    }
+
+    setSeoKeywordInput("");
+    setLinkUrl("");
+    setLinkAnchor("");
+    setShowSeoModal(false);
+
+    const totalSeo = seoKeywords.length + seoLinks.length;
+    if (totalSeo > 0) {
+      toast.success(
+        `Zapisano ${totalSeo} ${totalSeo === 1 ? "element" : "elementów"} SEO`,
+        { icon: "🎯" }
+      );
+    }
+  };
+
+  const handleCancelSeo = () => {
+    setSeoKeywordInput("");
+    setLinkUrl("");
+    setLinkAnchor("");
+    setShowSeoModal(false);
   };
 
   const handleAddText = async () => {
-    // ✅ SPRAWDŹ LIMIT 50 TEKSTÓW
     if (texts.length >= MAX_TEXTS_PER_ORDER && editingIndex === null) {
       toast.error(
         `Maksymalnie ${MAX_TEXTS_PER_ORDER} tekstów w jednym zamówieniu`,
-        {
-          duration: 4000,
-        }
+        { duration: 4000 }
       );
       return;
     }
@@ -447,17 +582,30 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
       return;
     }
 
+    // ✅ DODAJ DANE SEO
+    const textWithSeo = {
+      ...data,
+      seoData:
+        seoKeywords.length > 0 || seoLinks.length > 0
+          ? {
+              keywords: seoKeywords,
+              links: seoLinks,
+            }
+          : undefined,
+    };
+
     if (editingIndex !== null) {
       const updatedTexts = [...texts];
-      updatedTexts[editingIndex] = data;
+      updatedTexts[editingIndex] = textWithSeo;
       setTexts(updatedTexts);
       setEditingIndex(null);
       toast.success("Tekst zaktualizowany", { icon: "✅" });
     } else {
-      setTexts([...texts, data]);
+      setTexts([...texts, textWithSeo]);
       toast.success("Tekst dodany do zamówienia");
     }
 
+    // Reset formularza + SEO
     reset({
       topic: "",
       length: 1,
@@ -467,12 +615,50 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
       customType: "",
       guidelines: "",
       userSources: { urls: [], files: [] },
+      seoData: { keywords: [], links: [] },
     });
 
     setUrls([]);
     setFiles([]);
+    setSeoKeywords([]);
+    setSeoLinks([]);
   };
 
+  const handleEditText = (index: number) => {
+    const textToEdit = texts[index];
+
+    reset({
+      topic: textToEdit.topic,
+      length: textToEdit.length,
+      lengthUnit: textToEdit.lengthUnit,
+      language: textToEdit.language,
+      textType: textToEdit.textType || "",
+      customType: textToEdit.customType || "",
+      guidelines: textToEdit.guidelines || "",
+      userSources: textToEdit.userSources || { urls: [], files: [] },
+      seoData: textToEdit.seoData || { keywords: [], links: [] },
+    });
+
+    if (textToEdit.userSources) {
+      setUrls(textToEdit.userSources.urls || []);
+      setFiles(textToEdit.userSources.files || []);
+    }
+
+    // ✅ ZAŁADUJ DANE SEO
+    if (textToEdit.seoData) {
+      setSeoKeywords(textToEdit.seoData.keywords || []);
+      setSeoLinks(textToEdit.seoData.links || []);
+    } else {
+      setSeoKeywords([]);
+      setSeoLinks([]);
+    }
+
+    setEditingIndex(index);
+    toast(`Edytujesz: ${textToEdit.topic}`, { icon: "✏️" });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // ✅ ZAKTUALIZUJ handleCancelEdit
   const handleCancelEdit = () => {
     setEditingIndex(null);
     reset({
@@ -484,9 +670,12 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
       customType: "",
       guidelines: "",
       userSources: { urls: [], files: [] },
+      seoData: { keywords: [], links: [] },
     });
     setUrls([]);
     setFiles([]);
+    setSeoKeywords([]);
+    setSeoLinks([]);
     toast("Anulowano edycję");
   };
 
@@ -502,6 +691,13 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
   };
 
   const handleSubmit = async () => {
+    // Sprawdź zgodę na brak zwrotu
+    if (!noRefundConsent) {
+      toast.error("Musisz wyrazić zgodę na rozpoczęcie realizacji zamówienia", {
+        duration: 4000,
+      });
+      return;
+    }
     const data = watch();
     const isFormFilled = data.topic && data.topic.trim().length >= 3;
 
@@ -523,7 +719,47 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
         return;
       }
 
-      orderTexts.push(data);
+      let finalKeywords = [...seoKeywords];
+      let finalLinks = [...seoLinks];
+
+      // Dodaj frazę z inputa jeśli jest wpisana
+      if (seoKeywordInput.trim()) {
+        const trimmed = seoKeywordInput.trim();
+        if (
+          !finalKeywords.some(
+            (k) => k.toLowerCase() === trimmed.toLowerCase()
+          ) &&
+          finalKeywords.length < 10
+        ) {
+          finalKeywords.push(trimmed);
+        }
+      }
+
+      // Dodaj link z inputów jeśli są oba pola wypełnione
+      if (linkUrl.trim() && linkAnchor.trim()) {
+        const normalizedUrl = normalizeLinkUrl(linkUrl.trim());
+        try {
+          new URL(normalizedUrl);
+          if (finalLinks.length < maxLinks) {
+            finalLinks.push({ url: normalizedUrl, anchor: linkAnchor.trim() });
+          }
+        } catch (error) {
+          console.warn("Nieprawidłowy URL, pomijam");
+        }
+      }
+
+      const textWithSeo = {
+        ...data,
+        seoData:
+          seoKeywords.length > 0 || seoLinks.length > 0
+            ? {
+                keywords: seoKeywords,
+                links: seoLinks,
+              }
+            : undefined,
+      };
+
+      orderTexts.push(textWithSeo);
       console.log(`✅ Dodano aktualny formularz do zamówienia`);
     }
 
@@ -562,6 +798,7 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
       setUrls([]);
       setFiles([]);
       setEditingIndex(null);
+      setNoRefundConsent(false);
       onSuccess?.();
     } catch (error: any) {
       if (error.response?.status === 402) {
@@ -982,6 +1219,117 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
               className="input w-full resize-none bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
             />
           </motion.div>
+
+          {/* SEO */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.38 }}
+            className="card dark:bg-gray-800 dark:border-gray-700"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <label className="block text-sm font-bold text-gray-900 dark:text-white">
+                🎯 Optymalizacja SEO (opcjonalnie)
+              </label>
+              <div className="group relative">
+                <Info className="w-4 h-4 text-gray-400 cursor-help" />
+                <div className="absolute right-0 bottom-6 w-64 p-3 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 shadow-xl">
+                  Dodaj frazy kluczowe i linki SEO. Tekst zostanie naturalnie
+                  zoptymalizowany pod wskazane parametry.
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleOpenSeoModal}
+              className="btn btn-secondary w-full flex items-center justify-center gap-2 mb-4"
+            >
+              <Plus className="w-4 h-4" />
+              {seoKeywords.length + seoLinks.length > 0
+                ? `Edytuj sekcję SEO (${
+                    seoKeywords.length + seoLinks.length
+                  } elementów)`
+                : "Dodaj frazy kluczowe i/lub linkowanie"}
+            </button>
+
+            {/* PODGLĄD SEO */}
+            {(seoKeywords.length > 0 || seoLinks.length > 0) && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                className="space-y-2"
+              >
+                {/* Frazy kluczowe */}
+                {seoKeywords.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">
+                      🔑 Frazy kluczowe ({seoKeywords.length}/10)
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {seoKeywords.map((keyword, index) => (
+                        <motion.div
+                          key={index}
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.8 }}
+                          className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-sm"
+                        >
+                          <span>{keyword}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveKeyword(index)}
+                            className="hover:text-red-600 dark:hover:text-red-400"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Linki SEO */}
+                {seoLinks.length > 0 && (
+                  <div className="pt-2">
+                    <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">
+                      🔗 Linki SEO ({seoLinks.length}/{maxLinks})
+                    </p>
+                    <div className="space-y-2">
+                      {seoLinks.map((link, index) => (
+                        <motion.div
+                          key={index}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 10 }}
+                          className="flex items-center gap-2 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800"
+                        >
+                          <LinkIcon className="w-4 h-4 text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                              {link.anchor}
+                            </p>
+                            <p
+                              className="text-xs text-gray-600 dark:text-gray-400 truncate"
+                              title={link.url}
+                            >
+                              {link.url}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveLink(index)}
+                            className="p-1.5 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors flex-shrink-0"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </motion.div>
         </div>
 
         <div className="lg:col-span-1">
@@ -1132,8 +1480,84 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
                   </>
                 )}
               </button>
+              {/* ZGODA NA BRAK ZWROTU */}
+              <div className="mb-0 mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={noRefundConsent}
+                    onChange={(e) => setNoRefundConsent(e.target.checked)}
+                    className="mt-1 w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500 cursor-pointer"
+                  />
+                  <div className="flex-1">
+                    <span className="text-xs text-gray-900 dark:text-white font-medium">
+                      Wyrażam zgodę na natychmiastowe rozpoczęcie realizacji
+                      zamówienia i przyjmuję do wiadomości, że po rozpoczęciu
+                      prac utracę prawo odstąpienia od umowy
+                    </span>
+                  </div>
+                </label>
 
-              <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-4">
+                {/* Rozwijany panel z info prawnym */}
+                <button
+                  type="button"
+                  onClick={() => setShowLegalInfo(!showLegalInfo)}
+                  className="mt-3 flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+                >
+                  <Info className="w-4 h-4" />
+                  <span>Dlaczego nie mogę zwrócić zamówionego tekstu?</span>
+                  <ChevronDown
+                    className={`w-4 h-4 transition-transform ${
+                      showLegalInfo ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                <AnimatePresence>
+                  {showLegalInfo && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="mt-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-amber-200 dark:border-amber-800 text-xs text-gray-700 dark:text-gray-300 space-y-2"
+                    >
+                      <div className="flex gap-2">
+                        <Shield className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                        <div className="space-y-2">
+                          <p className="font-semibold">
+                            Podstawa prawna: Art. 38 pkt 13 ustawy o prawach
+                            konsumenta
+                          </p>
+                          <p>
+                            Zgodnie z polskim prawem, konsument nie ma prawa do
+                            odstąpienia od umowy o dostarczanie treści cyfrowych
+                            (takich jak teksty generowane przez AI), jeżeli:
+                          </p>
+                          <ul className="list-disc list-inside space-y-1 ml-2">
+                            <li>
+                              przedsiębiorca rozpoczął świadczenie za wyraźną
+                              zgodą konsumenta
+                            </li>
+                            <li>
+                              konsument został poinformowany o utracie prawa
+                              odstąpienia
+                            </li>
+                            <li>konsument przyjął to do wiadomości</li>
+                          </ul>
+                          <p className="pt-2 border-t border-amber-200 dark:border-amber-700">
+                            Po złożeniu zamówienia i rozpoczęciu generowania
+                            tekstu przez AI, usługa zostaje spełniona i nie ma
+                            możliwości jej zwrotu - podobnie jak w przypadku
+                            pobrania e-booka czy dostępu do kursu online.
+                          </p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-2">
                 {editingIndex !== null
                   ? "Zaktualizuj lub anuluj edycję"
                   : texts.length > 0
@@ -1148,7 +1572,7 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
                       } w zamówieniu`
                   : isFormFilled
                   ? "Dodaj do listy lub złóż zamówienie"
-                  : "Wypełnij formularz aby rozpocząć"}
+                  : ""}
               </p>
             </motion.div>
           </div>
@@ -1342,6 +1766,235 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
             </motion.div>
           </motion.div>
         )}
+        {/* MODAL SEO */}
+        <AnimatePresence>
+          {showSeoModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+              onClick={() => setShowSeoModal(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col shadow-2xl"
+              >
+                <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+                  <div>
+                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                      🎯 Optymalizacja SEO
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      {seoKeywords.length} fraz • {seoLinks.length}/{maxLinks}{" "}
+                      linków
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowSeoModal(false)}
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  >
+                    <X className="w-5 h-5 text-gray-500" />
+                  </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                  {/* FRAZY KLUCZOWE */}
+                  <div>
+                    <label className="block text-sm font-bold text-gray-900 dark:text-white mb-3">
+                      🔑 Frazy kluczowe (max 10)
+                    </label>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
+                      Tekst zostanie naturalnie zoptymalizowany pod te frazy.
+                      Podaj najważniejsze słowa kluczowe.
+                    </p>
+                    <div className="flex gap-2 mb-3">
+                      <input
+                        type="text"
+                        value={seoKeywordInput}
+                        onChange={(e) => setSeoKeywordInput(e.target.value)}
+                        onKeyPress={(e) =>
+                          e.key === "Enter" && handleAddKeyword()
+                        }
+                        placeholder="np. copywriting AI"
+                        disabled={seoKeywords.length >= 10}
+                        className="input flex-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddKeyword}
+                        disabled={seoKeywords.length >= 10}
+                        className={`btn px-6 disabled:opacity-50 disabled:cursor-not-allowed transition-all ${
+                          seoKeywordInput.trim()
+                            ? "btn-primary ring-2 ring-purple-300 dark:ring-purple-500 animate-pulse"
+                            : "btn-primary"
+                        }`}
+                      >
+                        Dodaj
+                      </button>
+                    </div>
+
+                    {seoKeywords.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {seoKeywords.map((keyword, index) => (
+                          <motion.div
+                            key={index}
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.8 }}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-sm"
+                          >
+                            <span>{keyword}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveKeyword(index)}
+                              className="hover:text-red-600 dark:hover:text-red-400"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </motion.div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* LINKOWANIE */}
+                  <div>
+                    <label className="block text-sm font-bold text-gray-900 dark:text-white mb-3">
+                      🔗 Linkowanie zewnętrzne (max {maxLinks} linków)
+                    </label>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
+                      Linki zostaną naturalnie wplecione w tekst z podanymi
+                      anchorami.
+                      {maxLinks === 0 && (
+                        <span className="block mt-1 text-orange-600 dark:text-orange-400">
+                          ⚠️ Tekst zbyt krótki (min. 2000 znaków)
+                        </span>
+                      )}
+                    </p>
+
+                    {maxLinks > 0 && (
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
+                          <input
+                            type="text"
+                            value={linkUrl}
+                            onChange={(e) => setLinkUrl(e.target.value)}
+                            placeholder="https://example.com/strona"
+                            disabled={!canAddMoreLinks}
+                            className="input bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50"
+                          />
+                          <input
+                            type="text"
+                            value={linkAnchor}
+                            onChange={(e) => setLinkAnchor(e.target.value)}
+                            onKeyPress={(e) =>
+                              e.key === "Enter" && handleAddLink()
+                            }
+                            placeholder="tekst anchora"
+                            disabled={!canAddMoreLinks}
+                            className="input bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleAddLink}
+                          disabled={!canAddMoreLinks}
+                          className="btn btn-primary w-full disabled:opacity-50"
+                        >
+                          {canAddMoreLinks
+                            ? `Dodaj link (${seoLinks.length}/${maxLinks})`
+                            : `Osiągnięto limit ${maxLinks} linków`}
+                        </button>
+                      </>
+                    )}
+
+                    {seoLinks.length > 0 && (
+                      <div className="space-y-2 mt-3">
+                        {seoLinks.map((link, index) => (
+                          <motion.div
+                            key={index}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: 10 }}
+                            className="flex items-center gap-2 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800"
+                          >
+                            <LinkIcon className="w-4 h-4 text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                                {link.anchor}
+                              </p>
+                              <p
+                                className="text-xs text-gray-600 dark:text-gray-400 truncate"
+                                title={link.url}
+                              >
+                                {link.url}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveLink(index)}
+                              className="p-1.5 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors flex-shrink-0"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </motion.div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* INFO SEO */}
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4 rounded-lg">
+                    <div className="flex gap-3">
+                      <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                      <div className="text-sm text-gray-700 dark:text-gray-300 space-y-2">
+                        <p>
+                          <strong>Frazy kluczowe:</strong> Będą naturalnie
+                          wplecione w tekst (tytuły, nagłówki, treść).
+                        </p>
+                        <p>
+                          <strong>Linki:</strong> Zostaną rozmieszczone
+                          równomiernie w tekście zgodnie z kontekstem.
+                        </p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">
+                          💡 Limity linków: ≤2000 znaków = 2 linki | 3000-5000 =
+                          3 linki | &gt;5000 = 5 linków
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                  <button
+                    type="button"
+                    onClick={handleCancelSeo}
+                    className="btn btn-secondary flex-1"
+                  >
+                    Anuluj
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveSeo}
+                    className="btn btn-primary flex-1 flex items-center justify-center gap-2"
+                  >
+                    <Check className="w-4 h-4" />
+                    Zatwierdź (
+                    {seoKeywords.length +
+                      seoLinks.length +
+                      (seoKeywordInput.trim() ? 1 : 0) +
+                      (linkUrl.trim() && linkAnchor.trim() ? 1 : 0)}
+                    )
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </AnimatePresence>
     </motion.div>
   );

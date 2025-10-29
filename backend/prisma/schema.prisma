@@ -136,7 +136,7 @@ model Text {
   progress      String?
   startTime     DateTime?
   
-  // NOWE POLA - szczegółowe logi każdego etapu
+  // szczegółowe logi każdego etapu
   queryPrompt       String?  @db.Text  // Prompt do generowania query
   queryResponse     String?  @db.Text  // Odpowiedź Claude
   selectPrompt      String?  @db.Text  // Prompt do wyboru źródeł
@@ -146,6 +146,11 @@ model Text {
   writerPrompts     String?  @db.Text  // JSON array z promptami pisarzy
   writerResponses   String?  @db.Text  // JSON array z odpowiedziami pisarzy
   
+  // SEO
+
+  seoKeywords   String?     @db.Text  // JSON array: ["fraza 1", "fraza 2"]
+  seoLinks      String?     @db.Text  // JSON array: [{url, anchor}]
+
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   

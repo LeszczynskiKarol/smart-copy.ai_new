@@ -10,6 +10,143 @@ const anthropic = new Anthropic({
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY!;
 const GOOGLE_CX = process.env.GOOGLE_CX || "47c4cfcb21523490f";
 
+// ✅ HELPER: Generuj instrukcje SEO dla promptu
+function generateSeoInstructions(text: any): string {
+  let seoInstructions = "";
+
+  // Parse JSON z bazy
+  const seoKeywords = text.seoKeywords ? JSON.parse(text.seoKeywords) : [];
+  const seoLinks = text.seoLinks ? JSON.parse(text.seoLinks) : [];
+
+  if (seoKeywords.length === 0 && seoLinks.length === 0) {
+    return ""; // Brak SEO
+  }
+
+  seoInstructions = `
+═══════════════════════════════════════════════════════════════
+🎯🎯🎯 KRYTYCZNE: OPTYMALIZACJA SEO 🎯🎯🎯
+═══════════════════════════════════════════════════════════════`;
+
+  // FRAZY KLUCZOWE
+  if (seoKeywords.length > 0) {
+    seoInstructions += `
+
+📍 FRAZY KLUCZOWE DO UWZGLĘDNIENIA:
+${seoKeywords.map((kw: string, i: number) => `   ${i + 1}. "${kw}"`).join("\n")}
+
+⚠️⚠️⚠️ ZASADY UŻYCIA FRAZ KLUCZOWYCH:
+1. Fraza główna ("${seoKeywords[0]}"):
+   - MUSI wystąpić w <h1> lub na początku pierwszego <p>
+   - Użyj ją 2-4 razy w całym tekście (naturalnie!)
+   - Może wystąpić w <h2> lub <h3>
+
+2. Pozostałe frazy:
+   - Rozmieść równomiernie w tekście
+   - Użyj w nagłówkach <h2>, <h3> lub <p>
+   - NATURALNIE - bez wymuszania
+   - Możesz użyć synonimów i odmian
+
+3. ZAKAZ:
+   ❌ Keyword stuffing (spam)
+   ❌ Nienatural placement
+   ❌ Powtarzanie tych samych fraz obok siebie
+
+4. ✅ DOBRE PRAKTYKI:
+   ✅ Użyj frazy w kontekście zdania
+   ✅ Synonim zamiast powtórzenia
+   ✅ Long-tail variations (np. "${seoKeywords[0]} w praktyce")
+`;
+  }
+
+  // LINKOWANIE
+  if (seoLinks.length > 0) {
+    const characters = text.length;
+    const maxLinks = characters <= 2000 ? 2 : characters <= 5000 ? 3 : 5;
+
+    seoInstructions += `
+
+🔗 LINKOWANIE ZEWNĘTRZNE - BARDZO WAŻNE!
+${seoLinks
+  .map(
+    (link: any, i: number) =>
+      `   ${i + 1}. <a href="${link.url}">${link.anchor}</a>`
+  )
+  .join("\n")}
+
+⚠️⚠️⚠️ KRYTYCZNE ZASADY LINKOWANIA:
+1. LIMIT: Użyj MAKSYMALNIE ${Math.min(
+      seoLinks.length,
+      maxLinks
+    )} linków z podanych ${seoLinks.length}
+   - Tekst ma ${characters} znaków → max ${maxLinks} linków
+
+2. GDZIE UMIEŚCIĆ LINKI:
+   ✅ W środku akapitu <p> (NIE na początku, NIE na końcu)
+   ✅ W kontekście naturalnego zdania
+   ✅ Rozmieszczone równomiernie (${Math.floor(
+     characters / Math.min(seoLinks.length, maxLinks)
+   )} znaków między linkami)
+   ❌ NIGDY w <h1>, <h2>, <h3>
+   ❌ NIGDY 2 linki w tym samym zdaniu
+   ❌ NIGDY obok siebie
+
+3. SKŁADNIA HTML:
+   <a href="${seoLinks[0]?.url || "URL"}">${seoLinks[0]?.anchor || "anchor"}</a>
+   
+   PRZYKŁAD PRAWIDŁOWEGO UŻYCIA:
+   <p>W dzisiejszych czasach <a href="${seoLinks[0]?.url}">${
+      seoLinks[0]?.anchor
+    }</a> staje się coraz ważniejsze dla firm pragnących rozwijać swoją obecność online.</p>
+
+4. ANCHOR TEXT:
+   - Użyj DOKŁADNIE podanego anchora: "${seoLinks[0]?.anchor}"
+   - NIE zmieniaj, NIE skracaj, NIE dodawaj słów
+   - Anchor musi pasować do kontekstu zdania
+
+5. KOLEJNOŚĆ:
+   - Użyj linków w podanej kolejności (najpierw link 1, potem 2, itd.)
+   - Jeśli limit jest niższy niż liczba linków, użyj pierwszych ${maxLinks}
+
+6. ROZMIESZCZENIE:
+   ${
+     characters <= 2000
+       ? "- Link 1: około 25% tekstu\n   - Link 2: około 75% tekstu"
+       : characters <= 5000
+       ? "- Link 1: około 20% tekstu\n   - Link 2: około 50% tekstu\n   - Link 3: około 80% tekstu"
+       : "- Linki równomiernie co ~" +
+         Math.floor(characters / maxLinks) +
+         " znaków"
+   }
+
+7. PRZYKŁAD ZŁEGO LINKOWANIA:
+   ❌ Na początku: <p><a href="...">tekst</a> dalszy tekst...</p>
+   ❌ Na końcu: <p>tekst... <a href="...">link</a></p>
+   ❌ W nagłówku: <h2><a href="...">Tytuł z linkiem</a></h2>
+   ❌ Obok siebie: <p>tekst <a href="...">link1</a> i <a href="...">link2</a></p>
+
+8. PRZYKŁAD DOBREGO LINKOWANIA:
+   ✅ <p>Przedsiębiorcy coraz częściej dostrzegają wartość <a href="${
+     seoLinks[0]?.url
+   }">${
+      seoLinks[0]?.anchor
+    }</a> w budowaniu trwałych relacji z klientami. To podejście przynosi wymierne korzyści w postaci...</p>
+
+⚠️⚠️⚠️ PAMIĘTAJ: Claude MUSI użyć DOKŁADNIE ${Math.min(
+      seoLinks.length,
+      maxLinks
+    )} linków z ${seoLinks.length} podanych!
+
+    BARDZO BARDZO BARDZO WAŻNE!!!! ->>> anchor musi ZAPISANY PRAWIDŁOWO JĘZYKOWO - niedopuszczalne są NIEWŁAŚCIWE GRAMATYCZNE ODMIANY!!!!
+`;
+  }
+
+  seoInstructions += `
+═══════════════════════════════════════════════════════════════
+`;
+
+  return seoInstructions;
+}
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 🔒 TWARDY LIMIT TOKENÓW - ZAPOBIEGA PRZEKROCZENIU DŁUGOŚCI
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -833,10 +970,13 @@ async function generateShortContent(
 
   const requiredLists = Math.max(1, Math.floor(text.length / 50000));
   const requiredTables = Math.max(1, Math.floor(text.length / 15000));
+  const seoInstructions = generateSeoInstructions(text);
 
   const prompt = `╔═══════════════════════════════════════════════════════════════╗
 ║  🔴🔴🔴 CEL: ${targetLength} ZNAKÓW - NIE MNIEJ! 🔴🔴🔴       ║
 ╚═══════════════════════════════════════════════════════════════╝
+${seoInstructions}
+
 🎯 TWÓJ OBOWIĄZKOWY CEL: ${targetLength} znaków
    ABSOLUTNE MINIMUM: ${minLength} znaków
    MAKSIMUM: ${maxLength} znaków
@@ -972,7 +1112,8 @@ ${sources}
   // ✅ TYLKO WERYFIKACJA
   const verification = await verifyAndFixEnding(
     response,
-    true, // to zawsze ostatnia część (całość tekstu)
+    text.length,
+    true,
     text.topic
   );
 
@@ -1253,17 +1394,34 @@ ODPOWIEDŹ (TYLKO VALID JSON, BEZ \`\`\`json):`;
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function verifyAndFixEnding(
   content: string,
+  contentLength: number, // ✅ NOWY PARAMETR!
   isLastPart: boolean = false,
   textTopic: string = ""
 ): Promise<{ fixed: string; wasTruncated: boolean; reason: string }> {
-  console.log(`\n🔍 WERYFIKACJA ZAKOŃCZENIA TEKSTU...`);
-  console.log(`   Długość: ${content.length} znaków`);
+  // ✅ MECHANIZM DZIAŁA TYLKO DLA TEKSTÓW >= 40,000 ZNAKÓW!
+  if (contentLength < 40000) {
+    console.log(
+      `\n✅ Tekst < 40k (${contentLength}) - BRAK WERYFIKACJI, zwracam jak jest\n`
+    );
+    return {
+      fixed: content,
+      wasTruncated: false,
+      reason: "below_threshold",
+    };
+  }
+
+  console.log(`\n🔍 WERYFIKACJA ZAKOŃCZENIA (tekst >= 40k)...`);
+  console.log(`   Długość części: ${content.length} znaków`);
+  console.log(`   Długość całkowita: ${contentLength} znaków`);
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // SPRAWDŹ CZY PRAWIDŁOWO ZAKOŃCZONY
+  // SPRAWDŹ CZY NAPRAWDĘ URWANY (mniej restrykcyjne sprawdzenie)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  // Tagi zamykające
+  const trimmed = content.trimEnd();
+  const last50 = trimmed.substring(trimmed.length - 50);
+
+  // Tagi zamykające - SZERSZA LISTA
   const closingTags = [
     "</p>",
     "</ul>",
@@ -1275,29 +1433,37 @@ async function verifyAndFixEnding(
     "</td>",
     "</tr>",
     "</div>",
+    "</strong>",
+    "</em>",
   ];
-  const endsWithClosingTag = closingTags.some((tag) =>
-    content.trimEnd().endsWith(tag)
-  );
 
-  // Urwany tag?
+  const endsWithClosingTag = closingTags.some((tag) => trimmed.endsWith(tag));
+
+  // Sprawdź czy kończy się sensownie (kropka + tag)
+  const endsWithSentenceAndTag = /[.!?]\s*<\/[^>]+>$/.test(trimmed);
+
+  // Urwany tag (otwierający bez zamykającego)?
   const lastOpenBracket = content.lastIndexOf("<");
   const lastCloseBracket = content.lastIndexOf(">");
   const hasUnclosedTag = lastOpenBracket > lastCloseBracket;
 
-  const isProperlyClosed = endsWithClosingTag && !hasUnclosedTag;
+  // ✅ TEKST OK jeśli:
+  // 1. Kończy się tagiem zamykającym ALBO
+  // 2. Kończy się zdaniem + tagiem ALBO
+  // 3. Brak urwanych tagów
+  const isOK =
+    (endsWithClosingTag || endsWithSentenceAndTag) && !hasUnclosedTag;
 
   console.log(`   📊 ANALIZA:`);
+  console.log(`      Kończy się tagiem: ${endsWithClosingTag ? "✅" : "❌"}`);
   console.log(
-    `      Kończy się tagiem zamykającym: ${endsWithClosingTag ? "✅" : "❌"}`
+    `      Kończy się zdaniem+tag: ${endsWithSentenceAndTag ? "✅" : "❌"}`
   );
-  console.log(`      Ma urwany tag: ${hasUnclosedTag ? "❌" : "✅"}`);
-  console.log(
-    `      Ostatnie 100 znaków: ...${content.substring(content.length - 100)}`
-  );
+  console.log(`      Ma urwany tag: ${hasUnclosedTag ? "❌ PROBLEM!" : "✅"}`);
+  console.log(`      Ostatnie 50 znaków: "${last50}"`);
 
   // ✅ PRAWIDŁOWO ZAKOŃCZONY - NIE RUSZAJ!
-  if (isProperlyClosed) {
+  if (isOK) {
     console.log(`\n   ✅✅✅ TEKST PRAWIDŁOWO ZAKOŃCZONY - ZERO ZMIAN!`);
     console.log(`   📏 Zachowano ${content.length} znaków\n`);
     return {
@@ -1308,26 +1474,28 @@ async function verifyAndFixEnding(
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // URWANY - ZNAJDŹ OSTATNI PEŁNY ELEMENT
+  // NAPRAWDĘ URWANY - ZNAJDŹ OSTATNI PEŁNY ELEMENT
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  console.log(`\n   ⚠️ TEKST URWANY - szukam ostatniego pełnego elementu...`);
+  console.log(
+    `\n   ⚠️ TEKST RZECZYWIŚCIE URWANY - szukam ostatniego pełnego elementu...`
+  );
 
   let cutPos = content.length;
   let cutReason = "unknown";
 
   // 1. Ostatni </p>
   const lastParagraph = content.lastIndexOf("</p>");
-  if (lastParagraph > content.length * 0.5) {
-    // minimum 50% tekstu
+  if (lastParagraph > content.length * 0.7) {
+    // ✅ 70% (było 50%)
     cutPos = lastParagraph + 4;
     cutReason = "paragraph";
     console.log(`   🔹 Znaleziono </p> na pozycji ${cutPos}`);
   }
-  // 2. Ostatni </li> (jeśli brak </p>)
+  // 2. Ostatni </li>
   else {
     const lastListItem = content.lastIndexOf("</li>");
-    if (lastListItem > content.length * 0.5) {
+    if (lastListItem > content.length * 0.7) {
       cutPos = lastListItem + 5;
       cutReason = "list_item";
       console.log(`   🔹 Znaleziono </li> na pozycji ${cutPos}`);
@@ -1335,12 +1503,12 @@ async function verifyAndFixEnding(
     // 3. Ostatnie zdanie
     else {
       const lastSentence = content.lastIndexOf(". ");
-      if (lastSentence > content.length * 0.5) {
+      if (lastSentence > content.length * 0.7) {
         cutPos = lastSentence + 2;
         cutReason = "sentence";
         console.log(`   🔹 Znaleziono zdanie na pozycji ${cutPos}`);
       }
-      // 4. Ostatni tag (emergency)
+      // 4. Ostatni tag
       else {
         const lastTag = content.lastIndexOf(">");
         if (lastTag > 0) {
@@ -1439,11 +1607,15 @@ ${part.previousContent.substring(
 `
     : "";
 
+  const seoInstructions =
+    part?.number === 1 ? generateSeoInstructions(text) : "";
+
   const prompt = `╔═══════════════════════════════════════════════════════════════╗
 ║  🎯 CEL: ${writerAssignment.sections} - ${targetLength} ZNAKÓW! 🎯  ║
 ╚═══════════════════════════════════════════════════════════════╝
 
 ${contextInfo}
+${seoInstructions}
 
 🎯 CEL TEJ CZĘŚCI: ${targetLength} znaków
    MINIMUM: ${minLength} znaków
@@ -1586,6 +1758,7 @@ ${sources.substring(0, 50000)}
   // ✅ TYLKO WERYFIKACJA CZY PRAWIDŁOWO ZAKOŃCZONY
   const verification = await verifyAndFixEnding(
     response,
+    text.length,
     part?.number === part?.total,
     text.topic
   );

@@ -108,7 +108,7 @@ export const DashboardPage = () => {
               Witaj, {user?.firstName || user?.email?.split("@")[0]}! 👋
             </h1>
             <p className="text-xl text-gray-600 dark:text-gray-300">
-              Gotowy do tworzenia wspaniałych treści?
+              Stwórzmy dziś nowe treści!
             </p>
           </motion.div>
           {/* Quick Actions */}

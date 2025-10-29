@@ -92,6 +92,7 @@ interface Order {
     guidelines: string | null;
     price: number;
     content: string | null;
+    generatedContent?: string;
   }>;
 }
 
@@ -278,8 +279,7 @@ const TextCard = ({
   const [isExpanded, setIsExpanded] = useState(false); // NOWE
   const queryClient = useQueryClient();
 
-  const content = text.content ? JSON.parse(text.content) : null;
-  const generatedContent = content?.generatedContent || "";
+  const generatedContent = text.generatedContent || "";
   const isGenerated = !!generatedContent;
   console.log("🔍 generatedContent length:", generatedContent.length);
 
@@ -455,12 +455,19 @@ const TextCard = ({
             {isGenerated && <CheckCircle className="w-5 h-5 text-green-500" />}
           </div>
           <div className="flex flex-wrap gap-4 text-sm text-gray-600 dark:text-gray-400 ml-11">
-            <span className="flex items-center gap-1">
-              📄 {text.pages} stron
+            <span className="flex items-center gap-1 font-medium text-gray-700 dark:text-gray-200">
+              📋 Deklarowana długość: {text.length.toLocaleString()} znaków (
+              {text.pages} str.)
             </span>
-            <span className="flex items-center gap-1">
-              ✍️ {text.length.toLocaleString()} znaków
-            </span>
+            {generatedContent && (
+              <span className="flex items-center gap-1 font-medium text-green-600 dark:text-green-400">
+                ✅ Wygenerowano:{" "}
+                {generatedContent
+                  .replace(/<[^>]*>/g, "")
+                  .length.toLocaleString()}{" "}
+                znaków
+              </span>
+            )}
             <span className="flex items-center gap-1">
               🌍 {text.language.toUpperCase()}
             </span>
@@ -863,7 +870,7 @@ export const OrderDetailPage = () => {
               className="flex items-center gap-2 text-purple-600 dark:text-purple-400 hover:underline mb-4"
             >
               <ArrowLeft className="w-4 h-4" />
-              Powrót do zamówień
+              Powrót
             </button>
             <div className="flex items-center justify-between">
               <div>

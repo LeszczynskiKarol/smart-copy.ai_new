@@ -12,6 +12,7 @@ import { apiClient } from "@/lib/api";
 import { motion } from "framer-motion";
 import { useSearchParams } from "react-router-dom";
 import {
+  ArrowLeft,
   Package,
   Clock,
   CheckCircle,
@@ -38,6 +39,7 @@ interface Order {
     price: number;
     progress?: string | null;
     startTime?: string;
+    generatedContent?: string;
   }>;
 }
 
@@ -112,7 +114,8 @@ const TextStatusBadge = ({ progress }: { progress?: string | null }) => {
 
   return (
     <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 animate-pulse">
-      <Package className="w-3 h-3" />W trakcie
+      <Package className="w-3 h-3" />
+      Realizuję zamówienie...
     </span>
   );
 };
@@ -241,6 +244,13 @@ export const OrdersPage = () => {
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div>
+              <button
+                onClick={() => navigate("/dashboard")}
+                className="flex items-center gap-2 text-purple-600 dark:text-purple-400 hover:underline mb-4"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Powrót
+              </button>
               <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
                 Moje zamówienia
               </h1>
@@ -368,32 +378,13 @@ export const OrdersPage = () => {
                               <TextStatusBadge progress={text.progress} />
                             </div>
 
-                            {/* ✅ POKAŻ PROGRESS BAR tylko dla tekstów w trakcie */}
-                            {text.progress &&
-                              text.progress !== "completed" &&
-                              text.progress !== "error" && (
-                                <ProgressBar
-                                  progress={text.progress}
-                                  textLength={text.length}
-                                  startTime={text.startTime}
-                                />
-                              )}
-
-                            {/* ✅ UKOŃCZONY - zielony box */}
-                            {text.progress === "completed" && (
-                              <motion.div
-                                initial={{ opacity: 0, scale: 0.95 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg"
-                              >
-                                <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
-                                  <CheckCircle className="w-5 h-5" />
-                                  <span className="text-sm font-medium">
-                                    Tekst ukończony! Będzie dostępny po
-                                    zakończeniu całego zamówienia.
-                                  </span>
-                                </div>
-                              </motion.div>
+                            {/* ✅ PROGRESS BAR - zawsze gdy jest progress (nawet completed) */}
+                            {text.progress && text.progress !== "error" && (
+                              <ProgressBar
+                                progress={text.progress}
+                                textLength={text.length}
+                                startTime={text.startTime}
+                              />
                             )}
 
                             {/* ❌ BŁĄD */}
@@ -518,10 +509,26 @@ export const OrdersPage = () => {
                                 </h4>
                               </div>
                               <div className="flex flex-wrap gap-3 text-sm text-gray-600 dark:text-gray-400">
-                                <span>📄 {text.pages} stron</span>
                                 <span>
-                                  ✍️ {text.length.toLocaleString()} znaków
+                                  📋 Deklarowana: {text.length.toLocaleString()}{" "}
+                                  znaków ({text.pages} str.)
                                 </span>
+                                {text.generatedContent && (
+                                  <span className="text-green-600 dark:text-green-400 font-medium">
+                                    ✅ Wygenerowana:{" "}
+                                    {text.generatedContent
+                                      .replace(/<[^>]*>/g, "")
+                                      .length.toLocaleString()}{" "}
+                                    znaków (
+                                    {Math.ceil(
+                                      text.generatedContent.replace(
+                                        /<[^>]*>/g,
+                                        ""
+                                      ).length / 2000
+                                    )}{" "}
+                                    str.)
+                                  </span>
+                                )}
                                 <span>🌍 {text.language.toUpperCase()}</span>
                               </div>
                             </div>

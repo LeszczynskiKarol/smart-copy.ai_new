@@ -120,13 +120,17 @@ function calculateProgress(
   startTime?: string
 ): number {
   if (currentStageIndex === -1) return 0;
+
   const totalDuration = calculateTotalDuration(textLength);
 
   if (startTime) {
     const start = new Date(startTime).getTime();
     const now = Date.now();
     const actualElapsed = Math.floor((now - start) / 1000);
-    return Math.min(100, (actualElapsed / totalDuration) * 100);
+    const rawProgress = (actualElapsed / totalDuration) * 100;
+
+    // ✅ CAP NA 98% (będzie nadpisane w komponencie dla completed)
+    return Math.min(98, rawProgress);
   }
 
   let elapsedTime = 0;
@@ -137,7 +141,9 @@ function calculateProgress(
       elapsedTime += STAGES[i].duration;
     }
   }
-  return Math.min(100, (elapsedTime / totalDuration) * 100);
+
+  const rawProgress = (elapsedTime / totalDuration) * 100;
+  return Math.min(98, rawProgress);
 }
 
 // 🎨 KOMPONENT LOADING PRZED STARTEM
@@ -310,14 +316,245 @@ export const ProgressBar = ({
   textLength,
   startTime,
 }: ProgressBarProps) => {
+  const [showCompletionAnimation, setShowCompletionAnimation] = useState(false);
+  const [finalBoxVisible, setFinalBoxVisible] = useState(false);
+
   // 🎯 JEŚLI BRAK PROGRESS - POKAŻ INITIALIZING LOADER
-  if (!progress || progress === "completed") {
-    if (!progress && progress !== "completed") {
-      return <InitializingLoader textLength={textLength} />;
-    }
-    return null;
+  if (!progress) {
+    return <InitializingLoader textLength={textLength} />;
   }
 
+  // ✅ OBSŁUGA COMPLETED - płynne przejście
+  useEffect(() => {
+    if (progress === "completed" && !showCompletionAnimation) {
+      // Pokaż animację zakończenia
+      setShowCompletionAnimation(true);
+
+      // Po 4 sekundach pokaż finalny box
+      const timer = setTimeout(() => {
+        setFinalBoxVisible(true);
+      }, 4000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [progress, showCompletionAnimation]);
+
+  // ✅ JEŚLI COMPLETED - POKAŻ ANIMACJĘ LUB FINALNY BOX
+  if (progress === "completed") {
+    // FAZA 1: Animacja zapełniania (0-4s)
+    if (!finalBoxVisible) {
+      return (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          className="mt-4 p-4 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 dark:from-green-900/20 dark:via-emerald-900/20 dark:to-teal-900/20 rounded-lg border-2 border-green-300 dark:border-green-700 relative overflow-hidden"
+        >
+          {/* ✨ Confetti effect w tle */}
+          <motion.div
+            animate={{
+              backgroundPosition: ["0% 0%", "100% 100%"],
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              repeatType: "reverse",
+            }}
+            className="absolute inset-0 opacity-20"
+            style={{
+              backgroundImage:
+                "linear-gradient(45deg, transparent 25%, rgba(34, 197, 94, 0.2) 25%, rgba(34, 197, 94, 0.2) 50%, transparent 50%, transparent 75%, rgba(34, 197, 94, 0.2) 75%)",
+              backgroundSize: "20px 20px",
+            }}
+          />
+
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <motion.div
+                  animate={{
+                    rotate: [0, 360],
+                    scale: [1, 1.2, 1],
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                  }}
+                >
+                  <Sparkles className="w-5 h-5 text-green-600 dark:text-green-400" />
+                </motion.div>
+                <span className="text-sm font-bold text-green-700 dark:text-green-300">
+                  Finalizacja generowania...
+                </span>
+              </div>
+              <motion.span
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.5 }}
+                className="text-sm font-bold text-green-700 dark:text-green-300"
+              >
+                <motion.span
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  98%
+                </motion.span>
+                <motion.span
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 1, duration: 0.5 }}
+                >
+                  {" "}
+                  → 100%
+                </motion.span>
+              </motion.span>
+            </div>
+
+            {/* Progress bar - animacja 98% → 100% */}
+            <div className="h-3 bg-green-100 dark:bg-green-900/40 rounded-full overflow-hidden mb-4 shadow-inner">
+              <motion.div
+                className="h-full bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 relative"
+                initial={{ width: "98%" }}
+                animate={{ width: "100%" }}
+                transition={{
+                  duration: 3,
+                  ease: "easeOut",
+                }}
+              >
+                {/* Shimmer effect */}
+                <motion.div
+                  animate={{
+                    x: ["-100%", "200%"],
+                  }}
+                  transition={{
+                    duration: 1.5,
+                    repeat: Infinity,
+                    ease: "linear",
+                  }}
+                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent"
+                />
+              </motion.div>
+            </div>
+
+            {/* Animowany tekst "Twój tekst jest gotowy!" */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 2, duration: 0.8 }}
+              className="text-center"
+            >
+              <motion.div
+                animate={{
+                  scale: [1, 1.05, 1],
+                }}
+                transition={{
+                  duration: 1.5,
+                  repeat: Infinity,
+                }}
+                className="flex items-center justify-center gap-2 text-green-700 dark:text-green-300"
+              >
+                <CheckCircle className="w-6 h-6" />
+                <span className="text-lg font-bold">
+                  🎉 Twój tekst jest gotowy!
+                </span>
+                <CheckCircle className="w-6 h-6" />
+              </motion.div>
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 2.5 }}
+                className="text-sm text-green-600 dark:text-green-400 mt-2"
+              >
+                Generowanie zakończone pomyślnie ✨
+              </motion.p>
+            </motion.div>
+
+            {/* Pulsujące gwiazdki */}
+            <div className="flex justify-center gap-3 mt-4">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <motion.div
+                  key={i}
+                  animate={{
+                    scale: [1, 1.5, 1],
+                    opacity: [0.3, 1, 0.3],
+                    rotate: [0, 180, 360],
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    delay: i * 0.2,
+                  }}
+                >
+                  <Sparkles className="w-4 h-4 text-green-500" />
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+      );
+    }
+
+    // FAZA 2: Finalny zielony box (po 4s)
+    return (
+      <AnimatePresence mode="wait">
+        <motion.div
+          key="final-box"
+          initial={{ opacity: 0, scale: 0.9, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg"
+        >
+          <div className="flex items-center gap-3">
+            <motion.div
+              initial={{ scale: 0, rotate: -180 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{
+                type: "spring",
+                stiffness: 200,
+                damping: 15,
+                delay: 0.2,
+              }}
+            >
+              <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-400" />
+            </motion.div>
+            <div className="flex-1">
+              <motion.p
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.4 }}
+                className="text-sm font-bold text-green-700 dark:text-green-300"
+              >
+                ✅ Tekst ukończony!
+              </motion.p>
+              <motion.p
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.6 }}
+                className="text-xs text-green-600 dark:text-green-400 mt-1"
+              >
+                Będzie dostępny po zakończeniu całego zamówienia
+              </motion.p>
+            </div>
+            <motion.div
+              animate={{
+                rotate: [0, 10, -10, 10, 0],
+              }}
+              transition={{
+                duration: 2,
+                repeat: Infinity,
+                repeatDelay: 3,
+              }}
+            >
+              <Sparkles className="w-5 h-5 text-green-500" />
+            </motion.div>
+          </div>
+        </motion.div>
+      </AnimatePresence>
+    );
+  }
+
+  // ✅ NORMALNY PROGRESS (dla IN_PROGRESS)
   let normalizedProgress = progress;
   if (progress === "reading") normalizedProgress = "scraping-all";
   if (progress === "select") normalizedProgress = "selecting";
@@ -367,10 +604,17 @@ export const ProgressBar = ({
           <span className="text-sm font-bold text-blue-700 dark:text-blue-300">
             {Math.round(progressPercent)}%
           </span>
-          <div className="flex items-center gap-1 text-sm font-bold text-purple-700 dark:text-purple-300">
-            <Timer className="w-4 h-4" />
-            <span>{formatTime(remainingSeconds)}</span>
-          </div>
+          {remainingSeconds > 0 && (
+            <div className="flex items-center gap-1 text-sm font-bold text-purple-700 dark:text-purple-300">
+              <Timer className="w-4 h-4" />
+              <span>{formatTime(remainingSeconds)}</span>
+            </div>
+          )}
+          {progressPercent >= 98 && (
+            <span className="text-xs text-purple-600 dark:text-purple-400 font-medium animate-pulse">
+              Finalizacja...
+            </span>
+          )}
         </div>
       </div>
 
@@ -386,7 +630,7 @@ export const ProgressBar = ({
         />
       </div>
 
-      {/* Stages */}
+      {/* Stages - BEZ ZMIAN */}
       <div className="space-y-2">
         {STAGES.map((stage, index) => {
           const Icon = stage.icon;
