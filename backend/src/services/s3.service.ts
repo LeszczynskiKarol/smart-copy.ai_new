@@ -1,11 +1,10 @@
 // backend/src/services/s3.service.ts
-
 import {
   S3Client,
   PutObjectCommand,
   GetObjectCommand,
-  DeleteObjectCommand, // ← DODAJ
-  ListObjectsV2Command, // ← DODAJ
+  DeleteObjectCommand,
+  ListObjectsV2Command,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import crypto from "crypto";
@@ -69,7 +68,7 @@ export class S3Service {
   }
 
   /**
-   * ✨ NOWE: Usuń pojedynczy plik
+   * Usuń pojedynczy plik
    */
   async deleteFile(s3Key: string): Promise<void> {
     await s3Client.send(
@@ -82,7 +81,7 @@ export class S3Service {
   }
 
   /**
-   * ✨ NOWE: Wyczyść pliki starsze niż 24h
+   * Wyczyść pliki starsze niż 24h
    */
   async cleanupOldFiles(): Promise<number> {
     const now = Date.now();
@@ -108,7 +107,6 @@ export class S3Service {
         if (!obj.Key || !obj.LastModified) continue;
 
         const fileAge = obj.LastModified.getTime();
-
         if (fileAge < twentyFourHoursAgo) {
           await this.deleteFile(obj.Key);
           deletedCount++;
@@ -122,4 +120,45 @@ export class S3Service {
       throw error;
     }
   }
+}
+
+// ✅ EKSPORTOWANE FUNKCJE POMOCNICZE dla blog.service
+/**
+ * Upload pliku do S3 (funkcja pomocnicza)
+ */
+export async function uploadToS3(
+  file: Buffer,
+  s3Key: string,
+  contentType: string
+): Promise<string> {
+  await s3Client.send(
+    new PutObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: s3Key,
+      Body: file,
+      ContentType: contentType,
+    })
+  );
+
+  const command = new GetObjectCommand({
+    Bucket: BUCKET_NAME,
+    Key: s3Key,
+  });
+
+  return await getSignedUrl(s3Client, command, {
+    expiresIn: 7 * 24 * 60 * 60,
+  });
+}
+
+/**
+ * Usuń plik z S3 (funkcja pomocnicza)
+ */
+export async function deleteFromS3(s3Key: string): Promise<void> {
+  await s3Client.send(
+    new DeleteObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: s3Key,
+    })
+  );
+  console.log(`🗑️ Usunięto plik z S3: ${s3Key}`);
 }

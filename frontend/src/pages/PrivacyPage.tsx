@@ -2,8 +2,12 @@
 
 import { Layout } from "@/components/layout/Layout";
 import { motion } from "framer-motion";
+import { Helmet } from "react-helmet-async";
 
 export const PrivacyPage = () => {
+  <Helmet>
+    <meta name="robots" content="noindex, nofollow" />
+  </Helmet>;
   return (
     <Layout>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12">

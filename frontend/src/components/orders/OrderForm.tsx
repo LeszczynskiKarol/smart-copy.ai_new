@@ -367,16 +367,48 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
 
   // ZATWIERDZENIE ŹRÓDEŁ (zamknięcie modala)
   const handleSaveUserSources = () => {
-    setValue("userSources", { urls, files });
+    // ✅ AUTOMATYCZNIE DODAJ URL Z INPUTA (jeśli jest)
+    let finalUrls = [...urls];
+
+    if (urlInput.trim()) {
+      try {
+        const normalizedUrl = normalizeUrl(urlInput.trim());
+        new URL(normalizedUrl); // Walidacja
+
+        // Sprawdź limit
+        if (finalUrls.length + files.length < 6) {
+          // Sprawdź duplikaty
+          if (
+            !finalUrls.some(
+              (existing) =>
+                existing.toLowerCase() === normalizedUrl.toLowerCase()
+            )
+          ) {
+            finalUrls.push(normalizedUrl);
+            toast.success("Link dodany automatycznie", { icon: "✨" });
+          }
+        } else {
+          toast.error(
+            "Osiągnięto limit 6 źródeł - nie dodano ostatniego linku"
+          );
+        }
+      } catch {
+        // Jeśli URL nieprawidłowy, pokaż ostrzeżenie ale nie blokuj zapisu
+        toast.error("Nieprawidłowy link - nie został dodany");
+      }
+    }
+
+    // Zapisz do formularza
+    setValue("userSources", { urls: finalUrls, files });
+    setUrls(finalUrls);
+    setUrlInput("");
     setShowSourcesModal(false);
 
-    const totalSources = urls.length + files.length;
+    const totalSources = finalUrls.length + files.length;
     if (totalSources > 0) {
       toast.success(
-        `Dodano ${totalSources} ${totalSources === 1 ? "źródło" : "źródeł"}`,
-        {
-          icon: "✅",
-        }
+        `Zapisano ${totalSources} ${totalSources === 1 ? "źródło" : "źródeł"}`,
+        { icon: "✅" }
       );
     }
   };
@@ -388,7 +420,22 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
       setUrls(currentSources.urls || []);
       setFiles(currentSources.files || []);
     }
+    setUrlInput(""); // ✅ Wyczyść input
     setShowSourcesModal(true);
+  };
+
+  const handleCancelSources = () => {
+    // ✅ Przywróć wartości z formularza (cofnij zmiany)
+    const currentSources = watch("userSources");
+    if (currentSources) {
+      setUrls(currentSources.urls || []);
+      setFiles(currentSources.files || []);
+    } else {
+      setUrls([]);
+      setFiles([]);
+    }
+    setUrlInput("");
+    setShowSourcesModal(false);
   };
 
   const handleAddText = async () => {
@@ -1161,7 +1208,11 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
                       type="button"
                       onClick={handleAddUrl}
                       disabled={urls.length + files.length >= 6}
-                      className="btn btn-primary px-6 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className={`btn px-6 disabled:opacity-50 disabled:cursor-not-allowed transition-all ${
+                        urlInput.trim()
+                          ? "btn-primary ring-2 ring-purple-300 dark:ring-purple-500 animate-pulse" // ✅ Podświetl
+                          : "btn-primary"
+                      }`}
                     >
                       Dodaj
                     </button>
@@ -1279,7 +1330,7 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
               <div className="flex gap-3 p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
                 <button
                   type="button"
-                  onClick={() => setShowSourcesModal(false)}
+                  onClick={handleCancelSources}
                   className="btn btn-secondary flex-1"
                 >
                   Anuluj
@@ -1290,7 +1341,8 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
                   className="btn btn-primary flex-1 flex items-center justify-center gap-2"
                 >
                   <Check className="w-4 h-4" />
-                  Zatwierdź ({urls.length + files.length})
+                  Zatwierdź (
+                  {urls.length + files.length + (urlInput.trim() ? 1 : 0)})
                 </button>
               </div>
             </motion.div>

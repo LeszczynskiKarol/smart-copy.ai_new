@@ -264,7 +264,17 @@ function parseHtmlToDocx(html: string): any[] {
 }
 
 // Komponent karty tekstu z edytorem
-const TextCard = ({ text, index, orderId }: any) => {
+const TextCard = ({
+  text,
+  index,
+  orderId,
+  expandedGuidelines,
+  toggleGuidelines,
+  truncateText,
+}: any) => {
+  const isGuidelinesExpanded = expandedGuidelines.has(text.id);
+  const hasLongGuidelines = text.guidelines && text.guidelines.length > 50;
+
   const [isEditing, setIsEditing] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false); // NOWE
   const queryClient = useQueryClient();
@@ -494,7 +504,7 @@ const TextCard = ({ text, index, orderId }: any) => {
               {index + 1}
             </span>
             <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-              <h3>{capitalizeFirstLetter(text.topic)}</h3>
+              {capitalizeFirstLetter(text.topic)}
             </h3>
             {isGenerated && <CheckCircle className="w-5 h-5 text-green-500" />}
           </div>
@@ -509,14 +519,60 @@ const TextCard = ({ text, index, orderId }: any) => {
               🌍 {text.language.toUpperCase()}
             </span>
           </div>
+
+          {/* ✅ ZAKTUALIZOWANA SEKCJA WYTYCZNYCH */}
           {text.guidelines && (
             <div className="ml-11 mt-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
               <p className="text-sm text-gray-600 dark:text-gray-400 font-semibold mb-1">
                 Wytyczne:
               </p>
-              <p className="text-sm text-gray-700 dark:text-gray-300">
-                {text.guidelines}
+              <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words">
+                {isGuidelinesExpanded || !hasLongGuidelines
+                  ? text.guidelines
+                  : truncateText(text.guidelines, 50)}
               </p>
+              {hasLongGuidelines && (
+                <button
+                  onClick={() => toggleGuidelines(text.id)}
+                  className="mt-2 text-xs font-medium text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors inline-flex items-center gap-1 group"
+                >
+                  {isGuidelinesExpanded ? (
+                    <>
+                      Pokaż mniej
+                      <svg
+                        className="w-3 h-3 transform group-hover:-translate-y-0.5 transition-transform"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 15l7-7 7 7"
+                        />
+                      </svg>
+                    </>
+                  ) : (
+                    <>
+                      Pokaż więcej ({text.guidelines.length} znaków)
+                      <svg
+                        className="w-3 h-3 transform group-hover:translate-y-0.5 transition-transform"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -782,6 +838,26 @@ const TextCard = ({ text, index, orderId }: any) => {
 export const OrderDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [expandedGuidelines, setExpandedGuidelines] = useState<Set<string>>(
+    new Set()
+  );
+
+  const toggleGuidelines = (textId: string) => {
+    setExpandedGuidelines((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(textId)) {
+        newSet.delete(textId);
+      } else {
+        newSet.add(textId);
+      }
+      return newSet;
+    });
+  };
+
+  const truncateText = (text: string, maxLength: number) => {
+    if (text.length <= maxLength) return text;
+    return text.slice(0, maxLength) + "...";
+  };
 
   const { data: order, isLoading } = useQuery({
     queryKey: ["order", id],
@@ -925,7 +1001,15 @@ export const OrderDetailPage = () => {
               Zamówione teksty ({order.texts.length})
             </h2>
             {order.texts.map((text, index) => (
-              <TextCard key={text.id} text={text} index={index} orderId={id} />
+              <TextCard
+                key={text.id}
+                text={text}
+                index={index}
+                orderId={id}
+                expandedGuidelines={expandedGuidelines}
+                toggleGuidelines={toggleGuidelines}
+                truncateText={truncateText}
+              />
             ))}
           </div>
         </div>

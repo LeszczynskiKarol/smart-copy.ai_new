@@ -1,4 +1,4 @@
-// frontend/types/index.ts
+// frontend/src/types/index.ts
 export interface User {
   id: string;
   email: string;
@@ -57,4 +57,56 @@ export interface ResetPasswordData {
 export interface ApiError {
   error: string;
   code?: string;
+}
+
+// BLOG TYPES
+export type BlogPostStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
+
+export interface BlogPost {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string;
+  content: string;
+  coverImage?: string;
+  metaTitle?: string;
+  metaDescription?: string;
+  keywords?: string;
+  status: BlogPostStatus;
+  publishedAt?: string;
+  viewCount: number;
+  createdAt: string;
+  updatedAt: string;
+  authorId: string;
+  author: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+}
+
+export interface BlogPostListResponse {
+  posts: BlogPost[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
+}
+
+export interface CreateBlogPostData {
+  title: string;
+  excerpt: string;
+  content: string;
+  coverImage?: File;
+  metaTitle?: string;
+  metaDescription?: string;
+  keywords?: string;
+  status: BlogPostStatus;
+}
+
+export interface UpdateBlogPostData extends Partial<CreateBlogPostData> {
+  id: string;
 }

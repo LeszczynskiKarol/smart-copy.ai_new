@@ -8,7 +8,15 @@ import { HelmetProvider } from "react-helmet-async";
 import { useAuthStore } from "./store/authStore";
 import { useEffect } from "react";
 import { ScrollToTop } from "./components/ScrollToTop";
+import { CookieConsent } from "./components/CookieConsent";
+
 // Pages
+import { CookieConsentProvider } from "./contexts/CookieConsentContext";
+import { BlogListPage } from "./pages/BlogListPage";
+import { CookiesPage } from "./pages/CookiesPage";
+import { BlogPostPage } from "./pages/BlogPostPage";
+import { BlogManagement } from "./pages/admin/BlogManagement";
+import { BlogEditor } from "./pages/admin/BlogEditor";
 import { AIProductDescriptionsPage } from "./pages/AIProductDescriptionsPage";
 import { OrderDetailPage } from "@/pages/OrderDetailPage";
 import { DepositPage } from "./pages/DepositPage";
@@ -87,143 +95,175 @@ function App() {
   }, []);
   return (
     <ThemeProvider>
-      <QueryClientProvider client={queryClient}>
-        <HelmetProvider>
-          <BrowserRouter>
-            <ScrollToTop />
-            <Routes>
-              {/* Public Routes */}
-              <Route path="/" element={<HomePage />} />
-              <Route path="/terms" element={<TermsPage />} />
-              <Route path="/privacy" element={<PrivacyPage />} />
-              <Route path="/ai-copywriter" element={<AICopywriterPage />} />
-              <Route
-                path="/ai-generator-opisow-produktow"
-                element={<AIProductDescriptionsPage />}
-              />
+      <CookieConsentProvider>
+        <QueryClientProvider client={queryClient}>
+          <HelmetProvider>
+            <BrowserRouter>
+              <ScrollToTop />
+              <Routes>
+                {/* Public Routes */}
+                <Route path="/" element={<HomePage />} />
+                <Route path="/terms" element={<TermsPage />} />
+                <Route path="/privacy" element={<PrivacyPage />} />
+                <Route path="/ai-copywriter" element={<AICopywriterPage />} />
+                <Route path="/cookies" element={<CookiesPage />} />
+                <Route
+                  path="/ai-generator-opisow-produktow"
+                  element={<AIProductDescriptionsPage />}
+                />
+                <Route path="/blog" element={<BlogListPage />} />
+                <Route path="/blog/:slug" element={<BlogPostPage />} />
+                {/* Auth Routes (public only) */}
+                <Route
+                  path="/register"
+                  element={
+                    <PublicOnlyRoute>
+                      <RegisterPage />
+                    </PublicOnlyRoute>
+                  }
+                />
+                <Route
+                  path="/login"
+                  element={
+                    <PublicOnlyRoute>
+                      <LoginPage />
+                    </PublicOnlyRoute>
+                  }
+                />
+                <Route path="/verify" element={<VerifyPage />} />
+                <Route
+                  path="/forgot-password"
+                  element={<ForgotPasswordPage />}
+                />
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
+                {/* Protected Routes */}
+                <Route
+                  path="/dashboard"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/orders"
+                  element={
+                    <ProtectedRoute>
+                      <OrdersPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/orders/:id"
+                  element={
+                    <ProtectedRoute>
+                      <OrderDetailPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/deposit"
+                  element={
+                    <ProtectedRoute>
+                      <DepositPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin"
+                  element={
+                    <ProtectedAdminRoute>
+                      <AdminDashboard />
+                    </ProtectedAdminRoute>
+                  }
+                />
+                <Route
+                  path="/admin/users"
+                  element={
+                    <ProtectedAdminRoute>
+                      <UsersManagement />
+                    </ProtectedAdminRoute>
+                  }
+                />
+                <Route
+                  path="/admin/blog"
+                  element={
+                    <ProtectedAdminRoute>
+                      <BlogManagement />
+                    </ProtectedAdminRoute>
+                  }
+                />
+                <Route
+                  path="/admin/blog/:id/edit"
+                  element={
+                    <ProtectedAdminRoute>
+                      <BlogEditor />
+                    </ProtectedAdminRoute>
+                  }
+                />
+                <Route
+                  path="/admin/blog/new"
+                  element={
+                    <ProtectedAdminRoute>
+                      <BlogEditor />
+                    </ProtectedAdminRoute>
+                  }
+                />
+                <Route
+                  path="/admin/orders"
+                  element={
+                    <ProtectedRoute>
+                      <OrdersManagement />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/orders/:id"
+                  element={
+                    <ProtectedAdminRoute>
+                      <AdminOrderDetail />
+                    </ProtectedAdminRoute>
+                  }
+                />
+                <Route
+                  path="/admin/texts/:id"
+                  element={
+                    <ProtectedAdminRoute>
+                      <AdminTextDetail />
+                    </ProtectedAdminRoute>
+                  }
+                />
+                {/* 404 */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
 
-              {/* Auth Routes (public only) */}
-              <Route
-                path="/register"
-                element={
-                  <PublicOnlyRoute>
-                    <RegisterPage />
-                  </PublicOnlyRoute>
-                }
-              />
-              <Route
-                path="/login"
-                element={
-                  <PublicOnlyRoute>
-                    <LoginPage />
-                  </PublicOnlyRoute>
-                }
-              />
-              <Route path="/verify" element={<VerifyPage />} />
-              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-              <Route path="/reset-password" element={<ResetPasswordPage />} />
-              {/* Protected Routes */}
-              <Route
-                path="/dashboard"
-                element={
-                  <ProtectedRoute>
-                    <DashboardPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/orders"
-                element={
-                  <ProtectedRoute>
-                    <OrdersPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/orders/:id"
-                element={
-                  <ProtectedRoute>
-                    <OrderDetailPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/deposit"
-                element={
-                  <ProtectedRoute>
-                    <DepositPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin"
-                element={
-                  <ProtectedAdminRoute>
-                    <AdminDashboard />
-                  </ProtectedAdminRoute>
-                }
-              />
-              <Route
-                path="/admin/users"
-                element={
-                  <ProtectedAdminRoute>
-                    <UsersManagement />
-                  </ProtectedAdminRoute>
-                }
-              />
-              <Route
-                path="/admin/orders"
-                element={
-                  <ProtectedRoute>
-                    <OrdersManagement />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin/orders/:id"
-                element={
-                  <ProtectedAdminRoute>
-                    <AdminOrderDetail />
-                  </ProtectedAdminRoute>
-                }
-              />
-              <Route
-                path="/admin/texts/:id"
-                element={
-                  <ProtectedAdminRoute>
-                    <AdminTextDetail />
-                  </ProtectedAdminRoute>
-                }
-              />
-              {/* 404 */}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-
-            <Toaster
-              position="top-right"
-              toastOptions={{
-                duration: 4000,
-                style: {
-                  background: "#363636",
-                  color: "#fff",
-                },
-                success: {
-                  iconTheme: {
-                    primary: "#10b981",
-                    secondary: "#fff",
+              <Toaster
+                position="top-right"
+                toastOptions={{
+                  duration: 4000,
+                  style: {
+                    background: "#363636",
+                    color: "#fff",
                   },
-                },
-                error: {
-                  iconTheme: {
-                    primary: "#ef4444",
-                    secondary: "#fff",
+                  success: {
+                    iconTheme: {
+                      primary: "#10b981",
+                      secondary: "#fff",
+                    },
                   },
-                },
-              }}
-            />
-          </BrowserRouter>
-        </HelmetProvider>
-      </QueryClientProvider>
+                  error: {
+                    iconTheme: {
+                      primary: "#ef4444",
+                      secondary: "#fff",
+                    },
+                  },
+                }}
+              />
+              <CookieConsent />
+            </BrowserRouter>
+          </HelmetProvider>
+        </QueryClientProvider>
+      </CookieConsentProvider>
     </ThemeProvider>
   );
 }

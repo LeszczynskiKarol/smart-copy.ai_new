@@ -35,6 +35,7 @@ model User {
   passwordResets    PasswordReset[]
   orders Order[]
   transactions      Transaction[] 
+  blogPosts BlogPost[]
 }
 
 
@@ -179,4 +180,36 @@ model Transaction {
   @@index([userId])
   @@index([stripeSessionId])
   @@map("transactions")
+}
+
+enum BlogPostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model BlogPost {
+  id          String          @id @default(uuid())
+  title       String
+  slug        String          @unique
+  excerpt     String          @db.Text
+  content     String          @db.Text
+  coverImage  String?         // URL do S3
+  metaTitle   String?
+  metaDescription String?      @db.Text
+  keywords    String?         @db.Text
+  status      BlogPostStatus  @default(DRAFT)
+  publishedAt DateTime?
+  viewCount   Int             @default(0)
+  authorId    String
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  @@index([slug])
+  @@index([status])
+  @@index([publishedAt])
+  @@index([authorId])
+  @@map("blog_posts")
 }

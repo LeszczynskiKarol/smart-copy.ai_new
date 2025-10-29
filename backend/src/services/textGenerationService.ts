@@ -15,6 +15,32 @@ function capitalizeFirstLetter(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🔒 TWARDY LIMIT TOKENÓW - ZAPOBIEGA PRZEKROCZENIU DŁUGOŚCI
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function calculateMaxTokens(targetLength: number): number {
+  // 1 token ≈ 4 znaki dla języków łacińskich (en, pl, de, es, fr, it)
+  // Dla języków ze znakami specjalnymi (uk, ru) może być 1:3
+  const baseTokens = Math.ceil(targetLength / 3.5);
+
+  // Margines 20% (Claude często pisze więcej niż trzeba)
+  const withMargin = Math.ceil(baseTokens * 1.2);
+
+  // Limity bezpieczeństwa
+  const MIN_TOKENS = 300;
+  const MAX_TOKENS = 16000;
+
+  const finalTokens = Math.max(MIN_TOKENS, Math.min(MAX_TOKENS, withMargin));
+
+  console.log(`📊 KALKULACJA MAX_TOKENS:`);
+  console.log(`   Target: ${targetLength} znaków`);
+  console.log(`   Bazowe tokeny (÷3.5): ${baseTokens}`);
+  console.log(`   Z marginesem (+20%): ${withMargin}`);
+  console.log(`   🔒 FINAL: ${finalTokens} tokenów\n`);
+
+  return finalTokens;
+}
+
 const LANGUAGE_MAP: Record<string, string> = {
   pl: "pl",
   en: "en",
@@ -138,7 +164,7 @@ ZASADY:
 TWOJE ZAPYTANIE (w języku ${languageName}):`;
 
   const message = await anthropic.messages.create({
-    model: "claude-3-haiku-20240307",
+    model: "claude-sonnet-4-5-20250929",
     max_tokens: 100,
     temperature: 0.3,
     messages: [{ role: "user", content: prompt }],
@@ -254,7 +280,7 @@ Zwróć TYLKO numery wybranych źródeł oddzielone przecinkami (np: 1,3,5,7,9)
 Bez żadnego dodatkowego tekstu!`;
 
   const message = await anthropic.messages.create({
-    model: "claude-3-haiku-20240307",
+    model: "claude-sonnet-4-5-20250929",
     max_tokens: 150,
     temperature: 0.3,
     messages: [{ role: "user", content: prompt }],
@@ -321,7 +347,7 @@ async function scrapeUrls(urls: string[], isUserSource: boolean = false) {
         { url },
         {
           headers: { "Content-Type": "application/json" },
-          timeout: 30000,
+          timeout: 100000,
         }
       );
 
@@ -775,69 +801,136 @@ async function generateShortContent(
   sources: string
 ): Promise<string> {
   const includeIntro = text.length >= 5000;
-
-  // Sprawdź czy są źródła użytkownika
   const hasUserSources = sources.includes("ŹRÓDŁA PRIORYTETOWE");
 
-  const prompt = `Jesteś profesjonalnym copywriterem. Twoim zadaniem jest napisanie oryginalnego tekstu WYŁĄCZNIE W FORMACIE HTML.
+  // 🔒 BARDZO RESTRYKCYJNY max_tokens (bez marginesu!)
+  const maxTokens = Math.ceil(text.length / 4); // 1:4 ratio, BEZ marginesu
+
+  const minLength = Math.floor(text.length * 0.95);
+  const maxLength = Math.ceil(text.length * 1.05);
+
+  const prompt = `╔═══════════════════════════════════════════════════════════════╗
+║  🔴 ABSOLUTNY WYMÓG: DOKŁADNA DŁUGOŚĆ TEKSTU 🔴              ║
+╚═══════════════════════════════════════════════════════════════╝
+
+🔴🔴🔴 LIMIT: ${text.length} ZNAKÓW (±5%) 🔴🔴🔴
+      MINIMUM: ${minLength} znaków
+      MAXIMUM: ${maxLength} znaków
+
+⚠️ PRZEKROCZENIE = CAŁKOWITA PORAŻKA! ⚠️
+⚠️ NIE BĘDZIE DRUGIEJ SZANSY! ⚠️
+
+═══════════════════════════════════════════════════════════════
+
+Jesteś profesjonalnym copywriterem. Piszesz HTML.
 
 KRYTYCZNE ZASADY FORMATOWANIA HTML:
-1. Pisz TYLKO czysty HTML - bez tagów <!DOCTYPE>, <html>, <head>, <body>
+1. Pisz TYLKO czysty HTML - bez <!DOCTYPE>, <html>, <head>, <body>
 2. Rozpocznij od: <h1>Tytuł Tekstu</h1>
 3. ${
     includeIntro
-      ? "Następnie dodaj wstęp w paragrafie: <p>Wstęp...</p>"
-      : "Po tytule przejdź BEZPOŚREDNIO do treści głównej"
+      ? "Następnie wstęp: <p>Wstęp...</p>"
+      : "Po tytule BEZPOŚREDNIO treść główna"
   }
-4. Używaj nagłówków <h2>, <h3> do strukturyzacji
-5. Każdy akapit w tagu <p>...</p>
-6. Listy w <ul><li>...</li></ul> lub <ol><li>...</li></ol>
-7. Zakończ na ostatnim znaku </p>
-8. Używaj <strong> do wyróżnień, <em> do akcentów
+4. Używaj <h2>, <h3>, <p>, <ul>, <ol>, <strong>, <em>
+5. Zakończ na </p> - MUSISZ zakończyć tekst sensownie!
+
+═══════════════════════════════════════════════════════════════
+⚠️ STRATEGIA PISANIA DLA ${text.length} ZNAKÓW:
+═══════════════════════════════════════════════════════════════
+
+${
+  text.length <= 2000
+    ? `
+🔹 To BARDZO KRÓTKI tekst (${text.length} znaków)
+🔹 <h1> + 2-3 KRÓTKIE akapity + zakończenie
+🔹 Każdy akapit: ~${Math.floor(text.length / 5)}-${Math.floor(
+        text.length / 4
+      )} znaków
+🔹 BEZ rozwijania myśli - TYLKO esencja!
+🔹 ZWIĘŹLE! Każde słowo musi być potrzebne!
+🔹 PRZESTAŃ PISAĆ gdy osiągniesz ~${text.length} znaków!
+`
+    : text.length <= 5000
+    ? `
+🔹 To ŚREDNI tekst (${text.length} znaków)
+🔹 <h1> + 2-3 sekcje <h2> + zakończenie
+🔹 Każda sekcja: ~${Math.floor(text.length / 5)} znaków
+🔹 Nie rozwijaj zbytnio - trzymaj się tematu!
+`
+    : `
+🔹 To DŁUŻSZY tekst (${text.length} znaków)
+🔹 <h1> + wstęp + 3-4 sekcje <h2> z podsekcjami <h3>
+🔹 Rozwijaj myśli, ale kontroluj długość!
+`
+}
+
+⚠️ KRYTYCZNE: Gdy zbliżasz się do ${text.length} znaków:
+   - Zacznij kończyć tekst
+   - Dodaj krótkie podsumowanie w <p>
+   - Zamknij wszystkie tagi
+   - PRZESTAŃ PISAĆ!
+
+═══════════════════════════════════════════════════════════════
+
+PARAMETRY:
+- TEMAT: ${text.topic}
+- RODZAJ: ${text.textType}
+- 🔴 DŁUGOŚĆ: ${text.length} znaków (${minLength}-${maxLength}) 🔴
+- JĘZYK: ${text.language}
+${
+  includeIntro
+    ? "- STRUKTURA: H1 → Wstęp → Treść → Zakończenie"
+    : "- STRUKTURA: H1 → Treść → Zakończenie"
+}
+- WYTYCZNE: ${text.guidelines || "brak"}
+
+═══════════════════════════════════════════════════════════════
 
 ZASADY TREŚCI:
 1. Pisz WYŁĄCZNIE w języku: ${text.language}
-2. ZAKAZ kopiowania ze źródeł - wszystko własnymi słowami
-3. ZAKAZ kopiowania z własnych poprzednich odpowiedzi
-4. Bądź oryginalny, wartościowy, ciekawy
-5. Pisz poprawnie gramatycznie
+2. ZAKAZ kopiowania ze źródeł - własne słowa
+3. ZAKAZ powtórzeń z poprzednich odpowiedzi
+4. Oryginalny, wartościowy, ciekawy
+5. 🔴 LICZY SIĘ KAŻDY ZNAK - KONTROLUJ DŁUGOŚĆ! 🔴
+6. 🔴 MUSISZ zakończyć tekst sensownie - nie przerywaj w połowie! 🔴
+
 ${
   hasUserSources
     ? `
-⚠️ KRYTYCZNE: PRIORYTET DLA ŹRÓDEŁ WSKAZANYCH PRZEZ UŻYTKOWNIKA
-- Użytkownik wskazał konkretne materiały źródłowe
-- MUSISZ wykorzystać informacje z tych źródeł w PIERWSZEJ KOLEJNOŚCI
-- To są materiały priorytetowe - bazuj na nich głównie
-- Źródła dodatkowe (Google) są tylko uzupełnieniem
+⚠️ KRYTYCZNE: PRIORYTET DLA ŹRÓDEŁ UŻYTKOWNIKA
+- Użytkownik wskazał konkretne materiały
+- Wykorzystaj JE W PIERWSZEJ KOLEJNOŚCI
+- Źródła Google tylko uzupełnieniem
 `
     : ""
 }
 
-TEMAT: ${text.topic}
-RODZAJ: ${text.textType}
-DŁUGOŚĆ: ${text.length} znaków (cel: ${text.length} ± 10%)
-JĘZYK: ${text.language}
-${
-  includeIntro
-    ? "STRUKTURA: Tytuł H1 → Wstęp (1 akapit) → Treść główna → Zakończenie"
-    : "STRUKTURA: Tytuł H1 → Treść główna → Zakończenie"
-}
-WYTYCZNE: ${text.guidelines || "brak"}
+═══════════════════════════════════════════════════════════════
+${hasUserSources ? "MATERIAŁY ŹRÓDŁOWE (UŻYTKOWNIK + GOOGLE):" : "ŹRÓDŁA:"}
+═══════════════════════════════════════════════════════════════
 
-${hasUserSources ? "═════════════════════════════════════" : ""}
-${
-  hasUserSources
-    ? "MATERIAŁY ŹRÓDŁOWE (UŻYTKOWNIK + GOOGLE):"
-    : "ŹRÓDŁA DO WYKORZYSTANIA:"
-}
-${hasUserSources ? "═════════════════════════════════════" : ""}
 ${sources}
 
-NAPISZ ORYGINALNY TEKST W CZYSTYM HTML (zaczynając od <h1>, kończąc na </p>):`;
+═══════════════════════════════════════════════════════════════
+🔴 OSTATNIE PRZYPOMNIENIE:
+═══════════════════════════════════════════════════════════════
+
+TWÓJ TEKST MUSI MIEĆ: ${text.length} znaków (±5%)
+- Mniej niż ${minLength}: ❌ ZA KRÓTKI
+- Więcej niż ${maxLength}: ❌ ZA DŁUGI
+- W zakresie ${minLength}-${maxLength}: ✅ IDEALNE
+
+LEPIEJ NIECO KRÓCEJ NIŻ ZA DŁUGO!
+LEPIEJ TEKST ZAKOŃCZONY SENSOWNIE NIŻ URWANY W POŁOWIE!
+
+PISZ ZWIĘŹLE, NA TEMAT, I ZAKOŃCZ PORZĄDNIE!
+
+NAPISZ TEKST W CZYSTYM HTML (${minLength}-${maxLength} znaków):`;
 
   const message = await anthropic.messages.create({
-    model: "claude-3-haiku-20240307",
-    max_tokens: 4000,
+    model: "claude-sonnet-4-5-20250929",
+    max_tokens: maxTokens, // 🔒 BARDZO RESTRYKCYJNY LIMIT
     temperature: 0.7,
     messages: [{ role: "user", content: prompt }],
   });
@@ -845,7 +938,25 @@ NAPISZ ORYGINALNY TEKST W CZYSTYM HTML (zaczynając od <h1>, kończąc na </p>):
   const response =
     message.content[0].type === "text" ? message.content[0].text : "";
 
-  // ZAPISZ PROMPTY I ODPOWIEDZI
+  // 🔒 TYLKO LOGOWANIE - BEZ PRZYCINANIA!
+  const actualLength = response.length;
+  console.log(`\n📏 WERYFIKACJA DŁUGOŚCI:`);
+  console.log(`   Oczekiwano: ${text.length} ±5% (${minLength}-${maxLength})`);
+  console.log(`   Otrzymano: ${actualLength} znaków`);
+
+  if (actualLength > maxLength) {
+    console.error(`❌ TEKST ZA DŁUGI! (${actualLength} > ${maxLength})`);
+    console.error(`   Przekroczenie o: ${actualLength - maxLength} znaków`);
+    // ⚠️ BEZ PRZYCINANIA - zwracamy taki jaki jest
+    // Użytkownik zobaczy problem i będzie mógł zlecić ponownie
+  } else if (actualLength < minLength) {
+    console.warn(`⚠️ TEKST ZA KRÓTKI! (${actualLength} < ${minLength})`);
+    console.warn(`   Brakuje: ${minLength - actualLength} znaków`);
+  } else {
+    console.log(`   ✅ DŁUGOŚĆ OK!\n`);
+  }
+
+  // ZAPISZ PROMPTY
   const { PrismaClient } = await import("@prisma/client");
   const prisma = new PrismaClient();
   const existingText = await prisma.text.findUnique({ where: { id: text.id } });
@@ -855,10 +966,8 @@ NAPISZ ORYGINALNY TEKST W CZYSTYM HTML (zaczynając od <h1>, kończąc na </p>):
   const existingWriterResponses = existingText?.writerResponses
     ? JSON.parse(existingText.writerResponses)
     : [];
-
   existingWriterPrompts.push(prompt);
   existingWriterResponses.push(response);
-
   await prisma.text.update({
     where: { id: text.id },
     data: {
@@ -868,7 +977,7 @@ NAPISZ ORYGINALNY TEKST W CZYSTYM HTML (zaczynając od <h1>, kończąc na </p>):
   });
   await prisma.$disconnect();
 
-  return response;
+  return response; // Zwracamy pełny tekst, nawet jeśli za długi
 }
 
 // >= 10 000 znaków - Kierownik określa strukturę
@@ -920,7 +1029,7 @@ Struktura musi sumować się do ${text.length} znaków (±10%).
 ODPOWIEDŹ - szczegółowa struktura HTML:`;
 
   const message = await anthropic.messages.create({
-    model: "claude-3-haiku-20240307",
+    model: "claude-sonnet-4-5-20250929",
     max_tokens: 4000,
     temperature: 0.5,
     messages: [{ role: "user", content: prompt }],
@@ -952,98 +1061,148 @@ ${
   part.previousContent
     ? `\nPOPRZEDNIA CZĘŚĆ (ostatnie 5000 znaków):\n${part.previousContent.substring(
         Math.max(0, part.previousContent.length - 5000)
-      )}\n\nKONTYNUUJ PŁYNNIE od tego miejsca:`
+      )}\n\nKONTYNUUJ PŁYNNIE:`
     : ""
 }`
     : "";
+
   const includeIntro = text.length >= 5000;
   const hasUserSources = sources.includes("ŹRÓDŁA PRIORYTETOWE");
 
-  const prompt = `Jesteś profesjonalnym copywriterem. ${partInfo}
+  // 🔒 OBLICZ DŁUGOŚĆ DLA TEJ CZĘŚCI
+  const partLength = part ? Math.floor(text.length / part.total) : text.length;
+  const maxTokens = calculateMaxTokens(partLength);
+  const minLength = Math.floor(partLength * 0.9); // trochę luźniej dla części
+  const maxLength = Math.ceil(partLength * 1.1);
+
+  const prompt = `╔═══════════════════════════════════════════════════════════════╗
+║  🔴 ABSOLUTNY WYMÓG: DOKŁADNA DŁUGOŚĆ ${
+    part ? `CZĘŚCI ${part.number}` : "TEKSTU"
+  } 🔴  ║
+╚═══════════════════════════════════════════════════════════════╝
+
+${partInfo}
+
+🔴🔴🔴 LIMIT TEJ CZĘŚCI: ${partLength} ZNAKÓW (±10%) 🔴🔴🔴
+      MINIMUM: ${minLength} znaków
+      MAXIMUM: ${maxLength} znaków
+
+⚠️ PRZEKROCZENIE = ZADANIE NIEUDANE! ⚠️
+
+═══════════════════════════════════════════════════════════════
+
 KRYTYCZNE ZASADY FORMATOWANIA HTML:
-1. Pisz TYLKO czysty HTML - bez tagów <!DOCTYPE>, <html>, <head>, <body>
+1. Pisz TYLKO czysty HTML - bez <!DOCTYPE>, <html>, <head>, <body>
 2. ${
     part?.number === 1
-      ? "Rozpocznij od: <h1>Tytuł Tekstu</h1>"
-      : "Kontynuuj strukturę HTML od poprzedniej części"
+      ? "Rozpocznij od: <h1>Tytuł</h1>"
+      : "Kontynuuj od poprzedniej części"
   }
 3. ${
     includeIntro && part?.number === 1
-      ? "Po tytule dodaj wstęp: <p>Wstęp...</p>"
+      ? "Po tytule wstęp: <p>Wstęp...</p>"
       : part?.number === 1
-      ? "Po tytule przejdź BEZPOŚREDNIO do treści"
+      ? "Po tytule BEZPOŚREDNIO treść"
       : ""
   }
-4. Używaj nagłówków <h2>, <h3> do strukturyzacji
-5. Każdy akapit w tagu <p>...</p>
-6. Listy w <ul><li>...</li></ul> lub <ol><li>...</li></ol>
-7. ${
+4. Używaj <h2>, <h3>, <p>, <ul>, <ol>, <strong>, <em>
+5. ${
     part?.number === part?.total
-      ? "Zakończ na ostatnim znaku </p>"
-      : "Zakończ część na pełnym znaczniku (np. </p>, </li>, </ul>)"
+      ? "Zakończ na </p>"
+      : "Zakończ na pełnym tagu (</p>, </li>, </ul>)"
   }
-8. Używaj <strong> do wyróżnień, <em> do akcentów
 
 ZASADY TREŚCI:
-1. Pisz WYŁĄCZNIE w języku: ${text.language}
+1. Język: ${text.language}
 2. ZAKAZ kopiowania ze źródeł
-3. ZAKAZ kopiowania z własnych poprzednich odpowiedzi
-4. Bądź oryginalny, wartościowy, ciekawy
-5. Ścisłe trzymanie się struktury HTML
+3. ZAKAZ powtórzeń
+4. Oryginalny, wartościowy
+5. Ścisłe trzymanie struktury HTML
+6. 🔴 KONTROLUJ DŁUGOŚĆ - ${partLength} znaków! 🔴
+
 ${
   hasUserSources
     ? `
-⚠️ KRYTYCZNE: PRIORYTET DLA ŹRÓDEŁ WSKAZANYCH PRZEZ UŻYTKOWNIKA
-- Użytkownik wskazał konkretne materiały źródłowe
-- MUSISZ wykorzystać informacje z tych źródeł w PIERWSZEJ KOLEJNOŚCI
-- To są materiały priorytetowe - bazuj na nich głównie
-- Źródła dodatkowe (Google) są tylko uzupełnieniem
+⚠️ PRIORYTET: ŹRÓDŁA UŻYTKOWNIKA
+- Użyj ich W PIERWSZEJ KOLEJNOŚCI
+- Google tylko uzupełnienie
 `
     : ""
 }
+
 ${
   part
     ? `6. ${
         part.previousContent
-          ? "KONTYNUUJ poprzednią część płynnie - NIE powtarzaj treści"
-          : "To jest pierwsza część - rozpocznij od <h1>"
+          ? "KONTYNUUJ płynnie - NIE powtarzaj"
+          : "To pierwsza część - zacznij od <h1>"
       }`
     : ""
 }
 
+═══════════════════════════════════════════════════════════════
 STRUKTURA HTML DO REALIZACJI:
+═══════════════════════════════════════════════════════════════
+
 ${structure}
 
-${hasUserSources ? "═════════════════════════════════════" : ""}
-${hasUserSources ? "MATERIAŁY ŹRÓDŁOWE (UŻYTKOWNIK + GOOGLE):" : "ŹRÓDŁA:"}
-${hasUserSources ? "═════════════════════════════════════" : ""}
+═══════════════════════════════════════════════════════════════
+${hasUserSources ? "MATERIAŁY (UŻYTKOWNIK + GOOGLE):" : "ŹRÓDŁA:"}
+═══════════════════════════════════════════════════════════════
+
 ${sources.substring(0, 50000)}
+
+═══════════════════════════════════════════════════════════════
+🔴 PRZYPOMNIENIE:
+═══════════════════════════════════════════════════════════════
+
+${
+  part ? `CZĘŚĆ ${part.number}/${part.total}` : "TEKST"
+}: ${partLength} znaków (±10%)
+ZAKRES: ${minLength}-${maxLength} znaków
+PISZ ZWIĘŹLE!
 
 ${
   part
-    ? `NAPISZ CZĘŚĆ ${part.number}/${part.total} W CZYSTYM HTML:`
-    : "NAPISZ PEŁNY TEKST W CZYSTYM HTML:"
+    ? `NAPISZ CZĘŚĆ ${part.number}/${part.total} W HTML (${minLength}-${maxLength} znaków):`
+    : `NAPISZ TEKST W HTML (${minLength}-${maxLength} znaków):`
 }`;
 
   const message = await anthropic.messages.create({
-    model: "claude-3-haiku-20240307",
-    max_tokens: 4000,
+    model: "claude-sonnet-4-5-20250929",
+    max_tokens: maxTokens, // 🔒 UŻYJ OBLICZONEGO
     temperature: 0.7,
     messages: [{ role: "user", content: prompt }],
   });
 
-  // <<<< TUTAJ ZAMIEŃ TEN RETURN NA KOD PONIŻEJ >>>>
-  // STARY KOD (usuń):
-  // return message.content[0].type === "text" ? message.content[0].text : "";
-
-  // NOWY KOD:
-  const response =
+  let response =
     message.content[0].type === "text" ? message.content[0].text : "";
 
-  // ZAPISZ PROMPTY I ODPOWIEDZI
+  // 🔒 POST-PROCESSING
+  const actualLength = response.length;
+  console.log(
+    `\n📏 WERYFIKACJA DŁUGOŚCI ${part ? `CZĘŚCI ${part.number}` : ""}:`
+  );
+  console.log(`   Oczekiwano: ${partLength} ±10% (${minLength}-${maxLength})`);
+  console.log(`   Otrzymano: ${actualLength} znaków`);
+
+  if (actualLength > maxLength) {
+    console.warn(`⚠️ ZA DŁUGIE! Przycinam...`);
+    const cutPoint = response.lastIndexOf("</p>", maxLength);
+    if (cutPoint > minLength && cutPoint !== -1) {
+      response = response.substring(0, cutPoint + 4);
+      console.log(`   ✂️ Przycięto do ${response.length} znaków`);
+    }
+  } else if (actualLength < minLength) {
+    console.warn(`⚠️ ZA KRÓTKIE! (${actualLength} < ${minLength})`);
+  }
+
+  const inRange = response.length >= minLength && response.length <= maxLength;
+  console.log(`   ${inRange ? "✅ OK" : "⚠️ POZA ZAKRESEM"}\n`);
+
+  // ZAPISZ
   const { PrismaClient } = await import("@prisma/client");
   const prisma = new PrismaClient();
-
   const existingText = await prisma.text.findUnique({ where: { id: text.id } });
   const existingWriterPrompts = existingText?.writerPrompts
     ? JSON.parse(existingText.writerPrompts)
@@ -1051,10 +1210,8 @@ ${
   const existingWriterResponses = existingText?.writerResponses
     ? JSON.parse(existingText.writerResponses)
     : [];
-
   existingWriterPrompts.push(prompt);
   existingWriterResponses.push(response);
-
   await prisma.text.update({
     where: { id: text.id },
     data: {
@@ -1296,7 +1453,7 @@ Zwróć TYLKO numery wybranych źródeł oddzielone przecinkami (np: 1,3,5,7)
 Bez żadnego dodatkowego tekstu!`;
 
   const message = await anthropic.messages.create({
-    model: "claude-3-haiku-20240307",
+    model: "claude-sonnet-4-5-20250929",
     max_tokens: 150,
     temperature: 0.3,
     messages: [{ role: "user", content: prompt }],
