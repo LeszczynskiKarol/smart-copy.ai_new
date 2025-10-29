@@ -5,8 +5,8 @@ import {
   Sparkles,
   CheckCircle,
   Maximize2,
-  Clock,
   Target,
+  Edit,
   Globe,
   Brain,
   FileText,
@@ -31,21 +31,21 @@ export const HomePage = () => {
   const features = [
     {
       icon: Brain,
-      title: "Zaawansowane AI Claude",
+      title: "Zaawansowane modele AI Claude",
       description:
-        "Wykorzystujemy najnowszy model Claude Sonnet 4 do generowania treści - ten sam AI, którego używają największe firmy na świecie.",
+        "Wykorzystujemy najnowszy model Claude Sonnet 4.5 do pisania tekstów - ten sam AI, którego używają największe firmy na świecie.",
     },
     {
       icon: Search,
-      title: "Automatyczny research",
+      title: "Automatyczne wyszukiwanie informacji",
       description:
-        "Generator tekstów AI automatycznie wyszukuje i analizuje źródła w internecie, aby stworzyć merytorycznie poprawną treść.",
+        "Nasz generator tekstów AI automatycznie wyszukuje i analizuje źródła w internecie, aby stworzyć merytorycznie poprawną treść.",
     },
     {
       icon: FileText,
       title: "Własne źródła",
       description:
-        "Dodaj swoje dokumenty i strony jako materiały źródłowe - AI wykorzysta je priorytetowo do generowania treści.",
+        "Jeśli chcesz, możesz dodać własne dokumenty i strony jako materiały źródłowe - AI wykorzysta je priorytetowo do generowania treści.",
     },
     {
       icon: Globe,
@@ -63,34 +63,34 @@ export const HomePage = () => {
       icon: Download,
       title: "Export do PDF i DOCX",
       description:
-        "Pobieraj gotowe treści w formatach PDF, DOCX, HTML lub kopiuj jako plain text - jak Ci wygodnie.",
+        "Pobieraj gotowy content w formatach PDF, DOCX, HTML lub kopiuj jako plain text - jak Ci wygodnie.",
     },
   ];
 
   const steps = [
     {
       number: "01",
-      title: "Opisz co potrzebujesz",
+      title: "Opisz, czego potrzebujesz",
       description:
         "Podaj temat, długość, język i dodaj opcjonalne wytyczne. Generator treści AI zrozumie Twoje potrzeby.",
     },
     {
       number: "02",
-      title: "AI wykonuje research",
+      title: "AI wyszukuje informacje",
       description:
-        "Sztuczna inteligencja automatycznie wyszukuje i analizuje najlepsze źródła w internecie dla Twojego tematu.",
+        "Sztuczna inteligencja automatycznie wyszukuje, analizuje i klasyfikuje najlepsze źródła w internecie dla Twojego tematu.",
     },
     {
       number: "03",
       title: "Generowanie treści",
       description:
-        "AI tworzy w pełni oryginalny, SEO-friendly tekst dostosowany do Twoich wymagań - bez kopiowania ze źródeł.",
+        "AI tworzy w pełni oryginalny, wartościowy i merytoryczny tekst dostosowany do Twoich wymagań - bez kopiowania ze źródeł.",
     },
     {
       number: "04",
       title: "Edycja i export",
       description:
-        "Edytuj treść w wygodnym edytorze i pobieraj w formacie PDF, DOCX lub kopiuj bezpośrednio do swojego CMS.",
+        "Edytuj treść w wygodnym edytorze i pobieraj w formacie PDF, DOCX lub kopiuj bezpośrednio do swojego CMS jako HTML.",
     },
   ];
 
@@ -98,17 +98,17 @@ export const HomePage = () => {
     {
       icon: FileText,
       title: "Artykuły blogowe",
-      description: "SEO-friendly artykuły 2000-10000 słów",
+      description: "SEO-friendly AI content",
     },
     {
       icon: Target,
       title: "Opisy produktów",
-      description: "Konwersyjne opisy dla e-commerce",
+      description: "Oryginalne i zoptymalizowane pod SEO opisy dla e-commerce",
     },
     {
       icon: BarChart3,
       title: "Raporty i analizy",
-      description: "Profesjonalne dokumenty biznesowe",
+      description: "Profesjonalne dokumenty biznesowe, naukowe, analityczne",
     },
     {
       icon: Users,
@@ -122,23 +122,24 @@ export const HomePage = () => {
     },
     {
       icon: Star,
-      title: "Newslettery",
-      description: "Wartościowe treści dla subskrybentów",
+      title: "Teksty na strony WWW",
+      description:
+        "Wartościowe treści na strony firmowe, do wizytówek, jako opisy",
     },
   ];
 
   const stats = [
-    { value: "10,000+", label: "Wygenerowanych tekstów" },
+    { value: "1000+", label: "Wygenerowanych tekstów" },
     { value: "2-150", label: "Stron tekstu" },
     { value: "8", label: "Języków" },
-    { value: "5 min", label: "Średni czas generowania" },
+    { value: "10 min", label: "Średni czas generowania" },
   ];
 
   const comparison = [
     {
       aspect: "Czas tworzenia 10-stronicowego artykułu",
       traditional: "8-12 godzin",
-      ai: "5-10 minut",
+      ai: "10-20 minut",
     },
     {
       aspect: "Research i weryfikacja źródeł",
@@ -166,17 +167,17 @@ export const HomePage = () => {
     {
       question: "Czy generator tekstów AI tworzy oryginalne treści?",
       answer:
-        "Tak! Nasza sztuczna inteligencja do tekstów nigdy nie kopiuje treści ze źródeł. AI analizuje informacje i tworzy w pełni oryginalny tekst własnymi słowami, dostosowany do Twoich wytycznych.",
+        "Tak! Nasza sztuczna inteligencja do tekstów nigdy nie kopiuje treści ze źródeł. AI analizuje informacje i pisze w pełni oryginalny tekst własnymi słowami, dostosowany do Twoich wytycznych.",
     },
     {
-      question: "W jakich językach działa generator treści AI?",
+      question: "W jakich językach działa Smart-Copy.AI?",
       answer:
         "Generator treści AI obsługuje 8 języków: polski, angielski, niemiecki, hiszpański, francuski, włoski, ukraiński i rosyjski. Możesz generować content w każdym z tych języków z pełnym uwzględnieniem gramatyki i stylu.",
     },
     {
       question: "Jak długie teksty może wygenerować AI?",
       answer:
-        "Nasze tworzenie tekstów AI obsługuje teksty od 2000 znaków (1 strona) do 150,000 znaków (75 stron). Możesz zamówić krótkie opisy produktów lub długie raporty analityczne.",
+        "Smart-Copy obsługuje teksty od 2000 znaków (1 strona) do ok. 150,000 znaków (ok. 75 stron). Możesz zamówić krótkie opisy produktów, długie artykuł blogowe, tekst do ebooka czy raport analityczny.",
     },
     {
       question: "Czy mogę dodać własne materiały źródłowe?",
@@ -186,7 +187,7 @@ export const HomePage = () => {
     {
       question: "Ile kosztuje generowanie treści?",
       answer:
-        "Cena wynosi 3.99 zł za 1000 znaków. Przykładowo: 1 strona (2000 znaków) = 7.98 zł, artykuł 10-stronicowy = ~40 zł. To 10x tańsze niż tradycyjny copywriting!",
+        "Cena wynosi 3,99 zł za 1000 znaków. Przykładowo: 1 strona (2000 znaków) = 7,98 zł, artykuł 10-stronicowy = ~40 zł. To 10 x tańsze niż tradycyjny copywriting!",
     },
     {
       question: "Czy treści są SEO-friendly?",
@@ -202,12 +203,12 @@ export const HomePage = () => {
       title: "Bardzo długie teksty",
       subtitle: "Do 150,000 znaków w jednym zleceniu",
       description:
-        "W przeciwieństwie do innych generatorów AI, które limitują długość do kilku tysięcy znaków, Smart-Copy.ai pozwala tworzyć kompleksowe treści do 150,000 znaków (około 75 stron A4). Idealne do długich raportów, e-booków, dokumentacji technicznej czy obszernych artykułów merytorycznych.",
+        "W przeciwieństwie do innych generatorów AI, które limitują długość, Smart-Copy.ai pozwala tworzyć kompleksowe treści do 150,000 znaków (około 75 stron A4). Idealne do długich raportów, e-booków, dokumentacji technicznej czy obszernych artykułów merytorycznych.",
       features: [
         "Pojedynczy artykuł do 75 stron",
         "Spójność treści na całej długości",
         "Automatyczna struktura i formatowanie",
-        "Profesjonalne raporty i analizy",
+        "Profesjonalne opracowania, raporty i analizy",
       ],
     },
     {
@@ -215,10 +216,10 @@ export const HomePage = () => {
       title: "Wiarygodne źródła i research",
       subtitle: "Proces weryfikacji w 4 krokach",
       description:
-        "Nasz generator tekstów AI nie wymyśla informacji. Każdy tekst powstaje w oparciu o starannie zweryfikowane źródła internetowe.",
+        "Nasza sztuczna inteligencja nie wymyśla informacji. Każdy tekst powstaje w oparciu o starannie zweryfikowane źródła internetowe, które są dobierane odpowiednio do Twojego tekstu.",
       features: [
         "Wyszukiwanie - AI przeszukuje Google i znajduje najlepsze źródła dla Twojego tematu",
-        "Scraping - Automatyczne pobieranie i ekstrakcja treści ze stron www",
+        "Scraping - Automatyczne pobieranie i ekstrakcja treści ze stron WWW",
         "Analiza - AI weryfikuje rzetelność, aktualność i wiarygodność źródeł",
         "Generowanie - Tworzenie oryginalnej treści z pełnym wykorzystaniem źródeł",
       ],
@@ -229,22 +230,22 @@ export const HomePage = () => {
       title: "Bez zobowiązań i subskrypcji",
       subtitle: "Płać tylko za to, czego używasz",
       description:
-        "W odróżnieniu od innych platform AI działających w modelu subskrypcyjnym, Smart-Copy.ai to przedpłata bez żadnych miesięcznych zobowiązań.",
+        "W przeciwieństwie do wielu innych platform AI działających w modelu subskrypcyjnym w Smart-Copy.ai oszczędzasz realne środki, bez żadnych miesięcznych zobowiązań.",
       features: [
-        "Brak miesięcznych opłat - płacisz tylko gdy potrzebujesz",
+        "Brak miesięcznych opłat - tworzysz teksty, gdy potrzebujesz",
         "Doładuj konto od 5 zł - bez minimalnych pakietów",
-        "Środki nie wygasają - wykorzystasz je kiedy chcesz",
-        "Anuluj w każdej chwili - bez kar i ukrytych kosztów",
+        "Środki nie wygasają - wykorzystasz, je kiedy chcesz",
+        "Oszczędzaj pieniądze dzięki korzystnym cenom - tylko 3,99 zł/1000 znaków",
       ],
       comparison: {
         others: [
-          "Abonament 99-299 zł/mies",
+          "Abonament 50-300 zł/mies",
           "Limit słów miesięcznie",
-          "Karnet się przepala",
+          "Abonament pozostaje niewykorzystany",
         ],
         us: [
           "0 zł stałych kosztów",
-          "Płacisz za znak",
+          "Płacisz za napisane słowa",
           "Środki bez daty ważności",
         ],
       },
@@ -254,10 +255,10 @@ export const HomePage = () => {
       title: "Własne źródła wiedzy",
       subtitle: "Linki + pliki = oryginalna treść",
       description:
-        "Dodaj do 6 własnych materiałów źródłowych - linki do stron www lub pliki w formatach PDF, DOC, DOCX. AI wykorzysta je priorytetowo, tworząc unikalne treści w oparciu o TWOJĄ wiedzę.",
+        "Dodaj do 6 własnych materiałów źródłowych - linki do stron WWW lub pliki w formatach PDF, DOC, DOCX. AI wykorzysta je priorytetowo, tworząc unikalne treści w oparciu o wiedzę, którą Ty dostarczasz.",
       features: [
         "Dokumenty firmowe - raporty, prezentacje, materiały wewnętrzne",
-        "Strony www - Twoja strona, konkurencja, artykuły branżowe",
+        "Strony WWW - Twoja strona, konkurencja, artykuły branżowe",
         "Materiały eksperckie - e-booki, white papers, case studies",
         "100% oryginalność - AI nie kopiuje, tylko przetwarza i syntetyzuje",
       ],
@@ -268,12 +269,12 @@ export const HomePage = () => {
     <>
       <Helmet>
         <title>
-          Generator Tekstów AI | Tworzenie Treści ze Sztuczną Inteligencją -
+          Generator Tekstów AI | Sztuczna Inteligencja do Tworzenia Treści -
           Smart-Copy.ai
         </title>
         <meta
           name="description"
-          content="Generator tekstów AI Smart-Copy.ai - profesjonalne tworzenie treści ze sztuczną inteligencją. Content generator w 8 językach. Artykuły, opisy produktów, raporty. Od 3.99 zł/1000 znaków. Wypróbuj za darmo!"
+          content="Generator tekstów AI Smart-Copy.ai - profesjonalne tworzenie treści ze sztuczną inteligencją. Content generator w 8 językach. Artykuły, opisy produktów, raporty. Od 3.99 zł/1000 znaków. Załóż konto!"
         />
         <meta
           name="keywords"
@@ -282,7 +283,7 @@ export const HomePage = () => {
         <link rel="canonical" href="https://smart-copy.ai" />
         <meta
           property="og:title"
-          content="Generator Tekstów AI | Smart-Copy.ai - Tworzenie Treści z AI"
+          content="Generator tekstów AI | Sztuczna inteligencja do tworzenia treści"
         />
         <meta
           property="og:description"
@@ -326,28 +327,26 @@ export const HomePage = () => {
                 className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-100 to-indigo-100 dark:from-purple-900/30 dark:to-indigo-900/30 text-purple-700 dark:text-purple-300 px-6 py-3 rounded-full mb-8 border border-purple-200 dark:border-purple-800"
               >
                 <Sparkles className="w-5 h-5" />
-                <span className="font-semibold">
-                  Najnowszy model Claude Sonnet 4
-                </span>
+                <span className="font-semibold">AI Content Generator</span>
               </motion.div>
 
               {/* Main Heading - SEO optimized */}
               <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold text-gray-900 dark:text-white mb-6 leading-tight">
-                Generator Tekstów AI
+                Sztuczna inteligencja
                 <br />
                 <span className="bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 bg-clip-text text-transparent">
-                  Nowej Generacji
+                  do pisania tekstów
                 </span>
               </h1>
 
               {/* Subtitle with SEO keywords */}
               <p className="text-xl md:text-2xl lg:text-3xl text-gray-600 dark:text-gray-300 mb-6 max-w-3xl mx-auto font-light">
                 <strong className="font-semibold text-gray-900 dark:text-white">
-                  Tworzenie tekstów AI
+                  Tworzenie treści z AI
                 </strong>{" "}
-                z automatycznym researchem i własnymi źródłami.
-                <br className="hidden md:block" />
-                Content generator w 8 językach - od 3.99 zł za 1000 znaków.
+                - generuj wartościowe, interesujące i rzetelne teksty blogowe,
+                raporty, opracowania, ebooki i inne treści już za 3,99 zł za
+                1000 znaków.
               </p>
 
               {/* Value props */}
@@ -355,19 +354,25 @@ export const HomePage = () => {
                 <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-4 py-2 rounded-full shadow-sm">
                   <CheckCircle className="w-5 h-5 text-green-500" />
                   <span className="text-gray-700 dark:text-gray-300 font-medium">
-                    10x szybciej niż copywriter
+                    20 x szybciej niż copywriter
                   </span>
                 </div>
                 <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-4 py-2 rounded-full shadow-sm">
                   <CheckCircle className="w-5 h-5 text-green-500" />
                   <span className="text-gray-700 dark:text-gray-300 font-medium">
-                    Oryginalne treści (nie kopiuje)
+                    Oryginalny content bez plagiatu
                   </span>
                 </div>
                 <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-4 py-2 rounded-full shadow-sm">
                   <CheckCircle className="w-5 h-5 text-green-500" />
                   <span className="text-gray-700 dark:text-gray-300 font-medium">
                     Export PDF, DOCX, HTML
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-4 py-2 rounded-full shadow-sm">
+                  <Edit className="w-5 h-5 text-green-500" />
+                  <span className="text-gray-700 dark:text-gray-300 font-medium">
+                    Live Editor
                   </span>
                 </div>
               </div>
@@ -379,7 +384,7 @@ export const HomePage = () => {
                   className="group btn btn-primary text-lg px-10 py-5 shadow-2xl hover:shadow-purple-500/50 transform hover:scale-105 transition-all relative overflow-hidden"
                 >
                   <span className="relative z-10 flex items-center gap-2">
-                    Wypróbuj za darmo
+                    Załóż konto
                     <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                   </span>
                   <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -389,15 +394,9 @@ export const HomePage = () => {
                   href="#jak-dziala"
                   className="btn btn-secondary text-lg px-10 py-5 border-2 hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
-                  Zobacz jak działa
+                  Zobacz, jak działa
                 </a>
               </div>
-
-              {/* Trust signals */}
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                ✓ Bez karty kredytowej ✓ Pierwsze teksty za darmo ✓ Anuluj w
-                każdej chwili
-              </p>
             </motion.div>
           </div>
         </section>
@@ -441,12 +440,12 @@ export const HomePage = () => {
               className="text-center mb-16"
             >
               <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-4">
-                Jak Działa Nasz{" "}
-                <span className="text-purple-600">Content Generator</span>?
+                Jak działa{" "}
+                <span className="text-purple-600">Smart-Copy.ai</span>?
               </h2>
               <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-                Sztuczna inteligencja do tekstów, która automatyzuje research,
-                pisanie i formatowanie
+                Sztuczna inteligencja do pisania tekstów, która automatyzuje
+                research, pisanie i formatowanie
               </p>
             </motion.div>
 
@@ -499,7 +498,7 @@ export const HomePage = () => {
               className="text-center mb-16"
             >
               <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-4">
-                Funkcje Generatora Treści AI
+                Funkcje generatora treści AI
               </h2>
               <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
                 Wszystko, czego potrzebujesz do profesjonalnego generowania
@@ -577,15 +576,14 @@ export const HomePage = () => {
                 </div>
               </div>
               <h2 className="text-4xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6">
-                Co Wyróżnia{" "}
+                Co wyróżnia{" "}
                 <span className="bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 bg-clip-text text-transparent">
                   Smart-Copy.ai
                 </span>
                 ?
               </h2>
               <p className="text-xl text-gray-700 dark:text-gray-300 max-w-4xl mx-auto">
-                Cztery kluczowe funkcje, które sprawiają, że jesteśmy liderem w
-                generowaniu treści AI
+                Generator tekstów inny niż wszystkie
               </p>
             </motion.div>
 
@@ -754,11 +752,11 @@ export const HomePage = () => {
                 className="inline-flex items-center gap-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 text-white px-10 py-5 rounded-2xl font-bold text-lg shadow-2xl hover:shadow-purple-500/50 transform hover:scale-105 transition-all"
               >
                 <Rocket className="w-6 h-6" />
-                Przetestuj wszystkie funkcje za darmo
+                Załóż konto
                 <ArrowRight className="w-6 h-6" />
               </Link>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-4">
-                Rejestracja bez karty kredytowej • Pierwsze teksty gratis
+                Rejestracja bez karty kredytowej
               </p>
             </motion.div>
           </div>
@@ -775,11 +773,11 @@ export const HomePage = () => {
               className="text-center mb-16"
             >
               <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-4">
-                Zastosowania Tworzenia Tekstów AI
+                Zastosowania
               </h2>
               <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-                Generator tekstów AI idealny do każdego rodzaju content
-                marketingu
+                Smart-Copy.ai to idealny generator do każdego rodzaju treści -
+                od krótkich artykułów blogowych po rozległe opracowania naukowe
               </p>
             </motion.div>
 
@@ -823,12 +821,12 @@ export const HomePage = () => {
               className="text-center mb-16"
             >
               <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-4">
-                Tradycyjne vs{" "}
-                <span className="text-purple-600">Generowanie Treści AI</span>
+                Tradycyjne pisanie vs{" "}
+                <span className="text-purple-600">generowanie treści AI</span>
               </h2>
               <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-                Zobacz różnicę między klasycznym copywritingiem a naszym
-                generatorem treści AI
+                Zobacz różnicę między klasycznym copywritingiem a sztuczną
+                inteligencją do pisania tekstów
               </p>
             </motion.div>
 
@@ -886,7 +884,7 @@ export const HomePage = () => {
               className="text-center mb-16"
             >
               <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-4">
-                Przejrzyste Ceny Bez Subskrypcji
+                Przejrzyste ceny bez subskrypcji
               </h2>
               <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
                 Płać tylko za to, czego używasz. Generator tekstów AI bez
@@ -903,14 +901,11 @@ export const HomePage = () => {
                 className="bg-white dark:bg-gray-700 rounded-3xl shadow-2xl p-8 md:p-12 border-2 border-purple-500"
               >
                 <div className="text-center mb-8">
-                  <div className="inline-block bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-2 rounded-full text-sm font-bold mb-4">
-                    NAJPOPULARNIEJSZY MODEL
-                  </div>
                   <div className="text-6xl font-bold text-gray-900 dark:text-white mb-2">
-                    3.99 zł
+                    3,99 zł
                   </div>
                   <div className="text-xl text-gray-600 dark:text-gray-400">
-                    za 1000 znaków
+                    za 1000 znaków (pół strony A4)
                   </div>
                 </div>
 
@@ -941,32 +936,11 @@ export const HomePage = () => {
                   </div>
                 </div>
 
-                <ul className="space-y-3 mb-8">
-                  {[
-                    "Brak miesięcznych opłat",
-                    "Doładuj konto od 5 zł",
-                    "Wszystkie funkcje AI dostępne",
-                    "8 języków bez dopłat",
-                    "Export PDF, DOCX, HTML",
-                    "Edytor WYSIWYG",
-                    "Własne źródła (linki + pliki)",
-                    "Wsparcie techniczne",
-                  ].map((feature, index) => (
-                    <li
-                      key={index}
-                      className="flex items-center gap-3 text-gray-700 dark:text-gray-300"
-                    >
-                      <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-
                 <Link
                   to="/register"
                   className="block w-full btn btn-primary text-lg py-4 text-center"
                 >
-                  Rozpocznij Generowanie Treści →
+                  Załóż konto →
                 </Link>
               </motion.div>
             </div>
@@ -984,10 +958,11 @@ export const HomePage = () => {
               className="text-center mb-16"
             >
               <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-4">
-                Najczęściej Zadawane Pytania
+                Najczęściej zadawane pytania
               </h2>
               <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-                Wszystko co musisz wiedzieć o generatorze tekstów AI
+                Wszystko, co chcesz wiedzieć o sztucznej inteligencji do pisania
+                tekstów
               </p>
             </motion.div>
 
@@ -1053,22 +1028,17 @@ export const HomePage = () => {
               transition={{ duration: 0.8 }}
               viewport={{ once: true }}
             >
-              <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-6 py-3 rounded-full mb-8">
-                <Clock className="w-5 h-5 text-white" />
-                <span className="text-white font-semibold">
-                  Dołącz do 10,000+ zadowolonych użytkowników
-                </span>
-              </div>
-
               <h2 className="text-4xl md:text-6xl font-bold text-white mb-6">
-                Zacznij Generować Profesjonalne
+                Zacznij generować profesjonalne
                 <br />
-                Treści Już Dziś
+                treści już dziś
               </h2>
 
               <p className="text-xl md:text-2xl text-purple-100 mb-10 max-w-3xl mx-auto">
                 Generator tekstów AI Smart-Copy.ai to najszybszy sposób na
-                tworzenie wysokiej jakości contentu. Wypróbuj za darmo!
+                tworzenie wysokiej jakości contentu w doskonałych cenach. Załóż
+                konto i zacznij oszczędzać na treściach bez kompromisów
+                jakościowych!
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
@@ -1076,21 +1046,13 @@ export const HomePage = () => {
                   to="/register"
                   className="inline-flex items-center justify-center gap-2 bg-white text-purple-600 px-10 py-5 rounded-xl font-bold text-lg hover:bg-gray-100 transition-all shadow-2xl hover:scale-105 transform"
                 >
-                  Rozpocznij Za Darmo
+                  Załóż konto
                   <Rocket className="w-5 h-5" />
-                </Link>
-                <Link
-                  to="/login"
-                  className="inline-flex items-center justify-center gap-2 bg-transparent border-2 border-white text-white px-10 py-5 rounded-xl font-bold text-lg hover:bg-white/10 transition-all"
-                >
-                  Mam już konto
-                  <ArrowRight className="w-5 h-5" />
                 </Link>
               </div>
 
               <p className="text-purple-100">
-                ✓ Bez karty kredytowej ✓ Pierwsze teksty gratis ✓ Anuluj w
-                każdej chwili
+                ✓ Bez karty kredytowej ✓ Bez zobowiązań ✓ 3,99 zł/1000 znaków
               </p>
             </motion.div>
           </div>

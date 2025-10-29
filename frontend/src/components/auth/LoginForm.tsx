@@ -181,8 +181,26 @@ export const LoginForm = () => {
         </form>
 
         {/* reCAPTCHA info */}
-        <p className="text-xs text-gray-700 dark:text-gray-400 text-center mt-4">
-          Ta strona jest chroniona przez reCAPTCHA Google.
+        <p className="text-xs text-gray-500 text-center mt-4">
+          Strona chroniona przez reCAPTCHA Google -{" "}
+          <a
+            href="https://policies.google.com/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-purple-600 dark:text-purple-400 hover:underline"
+          >
+            Prywatność
+          </a>{" "}
+          i{" "}
+          <a
+            href="https://policies.google.com/terms"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-purple-600 dark:text-purple-400 hover:underline"
+          >
+            Warunki
+          </a>
+          .
         </p>
 
         {/* Register Link */}

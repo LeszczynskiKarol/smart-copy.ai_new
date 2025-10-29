@@ -1,5 +1,4 @@
 // frontend/src/components/layout/Header.tsx
-
 import { Link } from "react-router-dom";
 import { Sparkles, Menu, X, Moon, Sun } from "lucide-react";
 import { useState } from "react";
@@ -22,14 +21,19 @@ export const Header = () => {
     <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-gray-900/90 backdrop-blur-lg border-b border-gray-200 dark:border-gray-700">
       <nav className="container-custom">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 group">
+          {/* Logo + Tagline */}
+          <Link to="/" className="flex items-center gap-2.5 group">
             <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
               <Sparkles className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text dark:text-gray-400 text-transparent">
-              Smart-Copy.ai
-            </span>
+            <div className="flex flex-col">
+              <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent leading-tight">
+                Smart-Copy.ai
+              </span>
+              <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400 tracking-wider leading-tight">
+                Twój AI Copywriter
+              </span>
+            </div>
           </Link>
 
           {/* Desktop Navigation */}
@@ -49,12 +53,13 @@ export const Header = () => {
           <div className="hidden md:flex items-center gap-4">
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              aria-label="Przełącz motyw"
             >
               {theme === "light" ? (
-                <Moon className="w-5 h-5" />
+                <Moon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
               ) : (
-                <Sun className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                <Sun className="w-5 h-5 text-gray-400" />
               )}
             </button>
 
@@ -66,8 +71,6 @@ export const Header = () => {
                 >
                   Dashboard
                 </Link>
-
-                {/* POKAŻ ADMIN TYLKO DLA ADMINÓW */}
                 {user?.role === "ADMIN" && (
                   <Link
                     to="/admin"
@@ -76,7 +79,6 @@ export const Header = () => {
                     Admin
                   </Link>
                 )}
-
                 <div className="flex items-center gap-3">
                   <span className="text-sm text-gray-600 dark:text-gray-400">
                     {user?.firstName || user?.email}
@@ -108,6 +110,7 @@ export const Header = () => {
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="md:hidden p-2 text-gray-600 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400"
+            aria-label="Menu"
           >
             {mobileMenuOpen ? (
               <X className="w-6 h-6" />
@@ -137,11 +140,10 @@ export const Header = () => {
                     </>
                   ) : (
                     <>
-                      <Sun className="w-4 h-4 mr-2 " /> Light Mode
+                      <Sun className="w-4 h-4 mr-2" /> Light Mode
                     </>
                   )}
                 </button>
-
                 {navigation.map((item) => (
                   <a
                     key={item.name}
@@ -161,6 +163,15 @@ export const Header = () => {
                     >
                       Dashboard
                     </Link>
+                    {user?.role === "ADMIN" && (
+                      <Link
+                        to="/admin"
+                        className="text-gray-600 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 transition-colors font-medium"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        Admin
+                      </Link>
+                    )}
                     <button
                       onClick={() => {
                         logout();

@@ -111,15 +111,15 @@ export const RegisterForm = () => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="w-full max-w-md"
+      className="w-full max-w-md bg-white dark:bg-gray-800"
     >
-      <div className="card">
+      <div className="card bg-white dark:bg-gray-800">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <h1 className="text-3xl font-bold text-gray-600 dark:text-gray-300 mb-2">
             Utwórz konto
           </h1>
           <p className="text-gray-600 dark:text-gray-300">
-            Rozpocznij swoją przygodę z AI już dziś
+            Generuj wartościowe treści z AI
           </p>
         </div>
 
@@ -127,7 +127,7 @@ export const RegisterForm = () => {
           {/* Imię i nazwisko */}
           <div className="grid grid-cols-1 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-2">
                 Imię (opcjonalne)
               </label>
               <div className="relative">
@@ -136,7 +136,7 @@ export const RegisterForm = () => {
                   {...register("firstName")}
                   type="text"
                   placeholder="Jan"
-                  className="input pl-10"
+                  className="input pl-10 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800"
                 />
               </div>
             </div>
@@ -155,7 +155,7 @@ export const RegisterForm = () => {
 
           {/* Email */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium  text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 mb-2">
               Adres email
             </label>
             <div className="relative">
@@ -164,7 +164,9 @@ export const RegisterForm = () => {
                 {...register("email")}
                 type="email"
                 placeholder="jan.kowalski@example.com"
-                className={`input pl-10 ${errors.email ? "input-error" : ""}`}
+                className={`input  text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 pl-10 ${
+                  errors.email ? "input-error" : ""
+                }`}
               />
             </div>
             {errors.email && (
@@ -176,7 +178,7 @@ export const RegisterForm = () => {
 
           {/* Hasło */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium  text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 mb-2">
               Hasło
             </label>
             <div className="relative">
@@ -185,7 +187,7 @@ export const RegisterForm = () => {
                 {...register("password")}
                 type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
-                className={`input pl-10 pr-10 ${
+                className={`input  text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 pl-10 pr-10 ${
                   errors.password ? "input-error" : ""
                 }`}
               />
@@ -288,7 +290,7 @@ export const RegisterForm = () => {
 
           {/* Potwierdzenie hasła */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium  text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 mb-2">
               Potwierdź hasło
             </label>
             <div className="relative">
@@ -297,7 +299,7 @@ export const RegisterForm = () => {
                 {...register("confirmPassword")}
                 type={showConfirmPassword ? "text" : "password"}
                 placeholder="••••••••"
-                className={`input pl-10 pr-10 ${
+                className={`input pl-10  text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 pr-10 ${
                   errors.confirmPassword ? "input-error" : ""
                 }`}
               />
@@ -365,11 +367,29 @@ export const RegisterForm = () => {
 
         {/* reCAPTCHA info */}
         <p className="text-xs text-gray-500 text-center mt-4">
-          Ta strona jest chroniona przez reCAPTCHA Google.
+          Strona chroniona przez reCAPTCHA Google -{" "}
+          <a
+            href="https://policies.google.com/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-purple-600 dark:text-purple-400 hover:underline"
+          >
+            Prywatność
+          </a>{" "}
+          i{" "}
+          <a
+            href="https://policies.google.com/terms"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-purple-600 dark:text-purple-400 hover:underline"
+          >
+            Warunki
+          </a>
+          .
         </p>
 
         {/* Login Link */}
-        <p className="text-center text-gray-600 mt-6">
+        <p className="text-center  text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 mt-6">
           Masz już konto?{" "}
           <Link
             to="/login"
