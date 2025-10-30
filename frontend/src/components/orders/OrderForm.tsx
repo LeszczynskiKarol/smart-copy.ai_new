@@ -1185,7 +1185,7 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
             <button
               type="button"
               onClick={handleOpenSourcesModal}
-              className="btn btn-secondary w-full flex items-center justify-center gap-2 mb-4"
+              className="btn btn-secondary w-full flex items-center justify-center gap-2 mb-4 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-200"
             >
               <Plus className="w-4 h-4" />
               {urls.length + files.length > 0
@@ -1299,7 +1299,7 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
             <button
               type="button"
               onClick={handleOpenSeoModal}
-              className="btn btn-secondary w-full flex items-center justify-center gap-2 mb-4"
+              className="btn btn-secondary w-full flex items-center justify-center gap-2 mb-4 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-200"
             >
               <Plus className="w-4 h-4" />
               {seoKeywords.length + seoLinks.length > 0
@@ -1806,7 +1806,7 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
                 <button
                   type="button"
                   onClick={handleCancelSources}
-                  className="btn btn-secondary flex-1"
+                  className="btn btn-secondary flex-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-200"
                 >
                   Anuluj
                 </button>
@@ -2030,7 +2030,7 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
                   <button
                     type="button"
                     onClick={handleCancelSeo}
-                    className="btn btn-secondary flex-1"
+                    className="btn btn-secondary flex-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-200"
                   >
                     Anuluj
                   </button>
