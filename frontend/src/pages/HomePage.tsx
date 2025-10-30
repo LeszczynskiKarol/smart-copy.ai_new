@@ -2,6 +2,12 @@
 import { Link } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import {
+  WebsiteSchema,
+  OrganizationSchema,
+  ProductSchema,
+  FAQPageSchema,
+} from "@/components/seo/StructuredData";
+import {
   Sparkles,
   CheckCircle,
   Maximize2,
@@ -291,7 +297,50 @@ export const HomePage = () => {
         />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://smart-copy.ai" />
+
+        <meta
+          name="robots"
+          content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
+        />
+        <meta name="googlebot" content="index, follow" />
+
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta
+          name="twitter:title"
+          content="Generator Tekstów AI | Smart-Copy.ai"
+        />
+        <meta
+          name="twitter:description"
+          content="Profesjonalny generator treści AI. Twórz artykuły w 8 językach. 10x szybciej i taniej."
+        />
+        <meta
+          name="twitter:image"
+          content="https://www.smart-copy.ai/og-image.png"
+        />
+
+        {/* Better OG tags */}
+        <meta
+          property="og:image"
+          content="https://www.smart-copy.ai/og-image.png"
+        />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:locale" content="pl_PL" />
+        <meta property="og:site_name" content="Smart-Copy.ai" />
+
+        {/* Link to sitemap */}
+        <link
+          rel="sitemap"
+          type="application/xml"
+          href="https://www.smart-copy.ai/sitemap.xml"
+        />
       </Helmet>
+      <WebsiteSchema />
+      <OrganizationSchema />
+      <ProductSchema />
+      <FAQPageSchema faqs={faq} />
+
       <Layout>
         {/* Hero Section - Enhanced SEO */}
         <section className="relative min-h-[95vh] flex items-center justify-center bg-gradient-to-br from-purple-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 overflow-hidden">

@@ -13,6 +13,7 @@ import { CookieConsent } from "./components/CookieConsent";
 // Pages
 import { CookieConsentProvider } from "./contexts/CookieConsentContext";
 import { BlogListPage } from "./pages/BlogListPage";
+import { NotFoundPage } from "./pages/NotFoundPage";
 import { CookiesPage } from "./pages/CookiesPage";
 import { BlogPostPage } from "./pages/BlogPostPage";
 import { BlogManagement } from "./pages/admin/BlogManagement";
@@ -234,7 +235,7 @@ function App() {
                   }
                 />
                 {/* 404 */}
-                <Route path="*" element={<Navigate to="/" replace />} />
+                <Route path="*" element={<NotFoundPage />} />
               </Routes>
 
               <Toaster
