@@ -1,6 +1,6 @@
 // frontend/src/components/layout/UserSidebar.tsx
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Link,
   useLocation,
@@ -28,12 +28,38 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 
 export const UserSidebar = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // ✅ DOMYŚLNIE ZAMKNIĘTY NA MOBILE, OTWARTY NA DESKTOP
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    const isMobile = window.innerWidth < 1024;
+    return !isMobile; // false na mobile, true na desktop
+  });
+
   const { logout, user } = useAuthStore();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
+
+  // ✅ ZAMYKAJ SIDEBAR NA MOBILE PO ZMIANIE TRASY
+  useEffect(() => {
+    const isMobile = window.innerWidth < 1024;
+    if (isMobile && sidebarOpen) {
+      setSidebarOpen(false);
+    }
+  }, [location.pathname]); // Tylko pathname, nie cały location
+
+  // ✅ REAGUJ NA ZMIANĘ ROZMIARU OKNA
+  useEffect(() => {
+    const handleResize = () => {
+      const isMobile = window.innerWidth < 1024;
+      if (!isMobile && !sidebarOpen) {
+        setSidebarOpen(true); // Otwórz na desktop
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [sidebarOpen]);
 
   // Pobierz saldo użytkownika
   const { data: userData } = useQuery({
@@ -42,7 +68,7 @@ export const UserSidebar = () => {
       const res = await apiClient.get("/auth/me");
       return res.data;
     },
-    refetchInterval: 30000, // Odświeżaj co 30s
+    refetchInterval: 30000,
   });
 
   const balance = userData?.balance ? parseFloat(userData.balance) : 0;
@@ -61,20 +87,17 @@ export const UserSidebar = () => {
   const isActive = (path: string) => {
     const pathname = location.pathname;
 
-    // Specjalne przypadki dla /orders
     if (path === "/orders?mode=new") {
       return pathname === "/orders" && searchParams.get("mode") === "new";
     }
 
     if (path === "/orders") {
-      // ✅ Podświetl dla /orders oraz /orders/{id}
       return (
         (pathname === "/orders" && searchParams.get("mode") !== "new") ||
         pathname.startsWith("/orders/")
       );
     }
 
-    // Dla innych ścieżek
     return pathname === path;
   };
 
@@ -96,7 +119,8 @@ export const UserSidebar = () => {
             animate={{ x: 0 }}
             exit={{ x: -300 }}
             transition={{ duration: 0.3 }}
-            className="fixed lg:sticky top-0 left-0 h-screen w-64 lg:w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-40 overflow-y-auto"
+            className="fixed lg:sticky top-0 left-0 h-screen w-64 lg:w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-40 overflow-y-auto sidebar-scrollbar"
+            // ✅ DODAJ KLASĘ sidebar-scrollbar
           >
             <div className="p-4 flex flex-col h-full">
               {/* Logo */}
@@ -194,11 +218,11 @@ export const UserSidebar = () => {
         )}
       </AnimatePresence>
 
-      {/* Desktop Toggle Button (when closed) */}
+      {/* ✅ Desktop Toggle Button - Z MARGINESEM OD LEWEJ */}
       {!sidebarOpen && (
         <button
           onClick={() => setSidebarOpen(true)}
-          className="hidden lg:block fixed top-20 left-4 z-40 p-2 rounded-lg bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700"
+          className="hidden lg:block fixed top-20 left-0 z-40 p-2 rounded-r-lg bg-white dark:bg-gray-800 shadow-lg border border-l-0 border-gray-200 dark:border-gray-700"
         >
           <ChevronRight className="w-5 h-5 text-gray-500 dark:text-gray-500" />
         </button>
