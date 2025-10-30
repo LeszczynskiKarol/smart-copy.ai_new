@@ -959,7 +959,7 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
             className="card dark:bg-gray-800 dark:border-gray-700"
           >
             <label className="block text-sm font-bold text-gray-900 dark:text-white mb-3">
-              Temat tekstu *
+              📝 Temat tekstu *
             </label>
             <input
               {...register("topic")}
@@ -985,7 +985,7 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
             className="card dark:bg-gray-800 dark:border-gray-700"
           >
             <label className="block text-sm font-bold text-gray-900 dark:text-white mb-3">
-              Długość tekstu *
+              📏 Długość tekstu *
             </label>
             <div className="flex gap-2 mb-4">
               <button
@@ -1052,7 +1052,7 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
             className="card dark:bg-gray-800 dark:border-gray-700"
           >
             <label className="block text-sm font-bold text-gray-900 dark:text-white mb-3">
-              Język tekstu *
+              🌍 Język tekstu *
             </label>
             <select
               {...register("language")}
@@ -1074,7 +1074,7 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
             className="card dark:bg-gray-800 dark:border-gray-700"
           >
             <label className="block text-sm font-bold text-gray-900 dark:text-white mb-3">
-              Rodzaj tekstu (opcjonalnie)
+              📄 Rodzaj tekstu (opcjonalnie)
             </label>
             <select
               {...register("textType")}
@@ -1111,7 +1111,7 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
           >
             <div className="flex items-center justify-between mb-3">
               <label className="block text-sm font-bold text-gray-900 dark:text-white">
-                Dodaj własne źródła (opcjonalnie)
+                📚 Dodaj własne źródła (opcjonalnie)
               </label>
               <div className="group relative">
                 <Info className="w-4 h-4 text-gray-400 cursor-help" />
@@ -1210,7 +1210,7 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
             className="card dark:bg-gray-800 dark:border-gray-700"
           >
             <label className="block text-sm font-bold text-gray-900 dark:text-white mb-3">
-              Dodatkowe wytyczne (opcjonalnie)
+              📋 Dodatkowe wytyczne (opcjonalnie)
             </label>
             <textarea
               {...register("guidelines")}

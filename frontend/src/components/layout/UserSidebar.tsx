@@ -83,7 +83,7 @@ export const UserSidebar = () => {
       {/* Mobile Toggle Button */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="lg:hidden fixed top-20 left-4 z-50 p-2 rounded-lg bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700"
+        className="lg:hidden fixed top-4 left-4 z-50 p-3 rounded-lg bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700"
       >
         {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
       </button>
@@ -96,13 +96,11 @@ export const UserSidebar = () => {
             animate={{ x: 0 }}
             exit={{ x: -300 }}
             transition={{ duration: 0.3 }}
-            className={`fixed lg:sticky top-0 left-0 h-screen bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-40 ${
-              sidebarOpen ? "w-64" : "w-0"
-            }`}
+            className="fixed lg:sticky top-0 left-0 h-screen w-64 lg:w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-40 overflow-y-auto"
           >
             <div className="p-4 flex flex-col h-full">
               {/* Logo */}
-              <div className="flex items-center justify-between mb-8 pt-16 lg:pt-4">
+              <div className="flex items-center justify-between mb-8 pt-20 lg:pt-4">
                 <Link to="/dashboard" className="flex items-center gap-2">
                   <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-lg flex items-center justify-center">
                     <Sparkles className="w-5 h-5 text-white" />
@@ -138,7 +136,7 @@ export const UserSidebar = () => {
               </nav>
 
               {/* Balance Card */}
-              <div className="mb-6 p-4 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+              <div className="mb-4 lg:mb-6 p-3 lg:p-4 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm text-gray-600 dark:text-gray-400">
                     Saldo konta
@@ -176,8 +174,8 @@ export const UserSidebar = () => {
               </button>
 
               {/* User Info & Logout */}
-              <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-                <div className="text-sm text-gray-600 dark:text-gray-400 mb-1 px-4">
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-4 pb-4 lg:pb-0">
+                <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-400 mb-1 px-4 truncate">
                   {user?.firstName || "Użytkownik"}
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-500 mb-3 px-4">

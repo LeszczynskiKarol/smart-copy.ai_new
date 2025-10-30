@@ -13,6 +13,6 @@ export default defineConfig({
   },
   server: {
     host: true,
-    allowedHosts: ["app-reactapp.ngrok.app", "localhost"],
+    allowedHosts: ["smart-copy.ai", "app-reactapp.ngrok.app", "localhost"],
   },
 });

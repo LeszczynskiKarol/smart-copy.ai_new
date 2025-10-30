@@ -5,9 +5,21 @@ import { StripeService } from "../services/stripe.service";
 import Stripe from "stripe";
 
 const stripeService = new StripeService();
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-09-30.clover",
-});
+
+// ✅ Lazy initialization
+let stripeInstance: Stripe | null = null;
+
+function getStripe(): Stripe {
+  if (!stripeInstance) {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      throw new Error("STRIPE_SECRET_KEY nie jest ustawiony");
+    }
+    stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: "2025-09-30.clover",
+    });
+  }
+  return stripeInstance;
+}
 
 export const stripeRoutes = async (fastify: FastifyInstance) => {
   fastify.post("/webhook", async (request: FastifyRequest, reply) => {
@@ -20,7 +32,6 @@ export const stripeRoutes = async (fastify: FastifyInstance) => {
       return reply.code(400).send({ error: "Missing Stripe signature" });
     }
 
-    // rawBody z fastify-raw-body plugin
     const rawBody = (request as any).rawBody;
 
     if (!rawBody) {
@@ -33,7 +44,7 @@ export const stripeRoutes = async (fastify: FastifyInstance) => {
     let event: Stripe.Event;
 
     try {
-      event = stripe.webhooks.constructEvent(
+      event = getStripe().webhooks.constructEvent(
         rawBody,
         signature,
         process.env.STRIPE_WEBHOOK_SECRET!

@@ -4,9 +4,20 @@ import { prisma } from "../lib/prisma";
 import { processOrder } from "./textGenerationService";
 import { sendOrderNotificationToSlack } from "./slackNotificationService";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-09-30.clover",
-});
+// ✅ Lazy initialization - tworzy stripe dopiero gdy jest potrzebny
+let stripeInstance: Stripe | null = null;
+
+function getStripe(): Stripe {
+  if (!stripeInstance) {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      throw new Error("STRIPE_SECRET_KEY nie jest ustawiony w .env");
+    }
+    stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: "2025-09-30.clover",
+    });
+  }
+  return stripeInstance;
+}
 
 export class StripeService {
   async createDepositSession(userId: string, amount: number, orderId?: string) {
@@ -40,7 +51,7 @@ export class StripeService {
       ? `${process.env.FRONTEND_URL}/orders?payment=success&orderId=${orderId}`
       : `${process.env.FRONTEND_URL}/dashboard?payment=success&amount=${creditAmount}`;
 
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       payment_method_types: ["card", "blik", "p24"],
       customer_email: user.email,
       line_items: [
