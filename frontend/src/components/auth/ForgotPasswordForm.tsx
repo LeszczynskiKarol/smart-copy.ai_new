@@ -62,18 +62,18 @@ export const ForgotPasswordForm = () => {
         transition={{ duration: 0.5 }}
         className="w-full max-w-md"
       >
-        <div className="card text-center">
+        <div className="card text-center bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-500">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle className="w-8 h-8 text-green-600" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2 dark:text-gray-100">
             Sprawdź swoją skrzynkę
           </h1>
-          <p className="text-gray-600 mb-4">
+          <p className="text-gray-900 dark:text-gray-100 mb-4">
             Wysłaliśmy link do resetowania hasła na adres:
           </p>
           <p className="text-purple-600 font-medium mb-6">{sentEmail}</p>
-          <p className="text-sm text-gray-500 mb-6">
+          <p className="text-sm text-gray-900 dark:text-gray-200 mb-6">
             Link jest ważny przez 1 godzinę. Jeśli nie otrzymałeś wiadomości,
             sprawdź folder spam.
           </p>
@@ -92,12 +92,12 @@ export const ForgotPasswordForm = () => {
       transition={{ duration: 0.5 }}
       className="w-full max-w-md"
     >
-      <div className="card">
-        <div className="text-center mb-8">
+      <div className="card bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-500">
+        <div className="text-center mb-8 ">
           <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
             <Mail className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
             Zapomniałeś hasła?
           </h1>
           <p className="text-gray-600 dark:text-gray-300">
@@ -107,7 +107,7 @@ export const ForgotPasswordForm = () => {
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
               Adres email
             </label>
             <div className="relative">
@@ -116,7 +116,9 @@ export const ForgotPasswordForm = () => {
                 {...register("email")}
                 type="email"
                 placeholder="jan.kowalski@example.com"
-                className={`input pl-10 ${errors.email ? "input-error" : ""}`}
+                className={`input bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-200 pl-10 ${
+                  errors.email ? "input-error" : ""
+                }`}
                 autoComplete="email"
               />
             </div>
@@ -146,9 +148,9 @@ export const ForgotPasswordForm = () => {
         <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
           <Link
             to="/login"
-            className="flex items-center gap-2 text-gray-600 hover:text-purple-600 mx-auto justify-center"
+            className="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-purple-600 mx-auto justify-center"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-4 h-4 text-gray-700 dark:text-gray-200" />
             Wróć do logowania
           </Link>
         </div>

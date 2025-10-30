@@ -90,12 +90,12 @@ export const ResetPasswordForm = () => {
       transition={{ duration: 0.5 }}
       className="w-full max-w-md"
     >
-      <div className="card">
+      <div className="card bg-white dark:bg-gray-800 border-white dark:border-gray-600">
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
             <Lock className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
             Ustaw nowe hasło
           </h1>
           <p className="text-gray-600 dark:text-gray-300">
@@ -106,7 +106,7 @@ export const ResetPasswordForm = () => {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           {/* Nowe hasło */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
               Nowe hasło
             </label>
             <div className="relative">
@@ -115,7 +115,7 @@ export const ResetPasswordForm = () => {
                 {...register("password")}
                 type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
-                className={`input pl-10 pr-10 ${
+                className={`input pl-10 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 border-white dark:border-gray-500 pr-10 ${
                   errors.password ? "input-error" : ""
                 }`}
               />
@@ -218,7 +218,7 @@ export const ResetPasswordForm = () => {
 
           {/* Potwierdzenie hasła */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-100 mb-2">
               Potwierdź hasło
             </label>
             <div className="relative">
@@ -227,7 +227,7 @@ export const ResetPasswordForm = () => {
                 {...register("confirmPassword")}
                 type={showConfirmPassword ? "text" : "password"}
                 placeholder="••••••••"
-                className={`input pl-10 pr-10 ${
+                className={`input pl-10 pr-10 text-gray-700 dark:text-gray-100 bg-white dark:bg-gray-800 border-white dark:border-gray-500 ${
                   errors.confirmPassword ? "input-error" : ""
                 }`}
               />

@@ -1,6 +1,6 @@
 // frontend/src/components/layout/UserSidebar.tsx
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   Link,
   useLocation,
@@ -15,6 +15,8 @@ import {
   Moon,
   Sun,
   LogOut,
+  Menu,
+  X,
   Home,
   Package,
   Plus,
@@ -23,7 +25,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { motion, AnimatePresence, PanInfo } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 export const UserSidebar = () => {
   const [sidebarOpen, setSidebarOpen] = useState(() => {
@@ -36,48 +38,11 @@ export const UserSidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const sidebarRef = useRef<HTMLDivElement>(null);
-
-  // ✅ EDGE SWIPE DETECTION (swipe z lewej krawędzi)
-  useEffect(() => {
-    const isMobile = window.innerWidth < 1024;
-    if (!isMobile) return;
-
-    let touchStartX = 0;
-    let touchStartY = 0;
-
-    const handleTouchStart = (e: TouchEvent) => {
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
-    };
-
-    const handleTouchMove = (e: TouchEvent) => {
-      if (sidebarOpen) return; // Tylko gdy zamknięty
-
-      const touchX = e.touches[0].clientX;
-      const touchY = e.touches[0].clientY;
-      const deltaX = touchX - touchStartX;
-      const deltaY = Math.abs(touchY - touchStartY);
-
-      // Jeśli start był blisko lewej krawędzi (<20px) i ruch w prawo
-      if (touchStartX < 20 && deltaX > 50 && deltaY < 30) {
-        setSidebarOpen(true);
-      }
-    };
-
-    document.addEventListener("touchstart", handleTouchStart);
-    document.addEventListener("touchmove", handleTouchMove);
-
-    return () => {
-      document.removeEventListener("touchstart", handleTouchStart);
-      document.removeEventListener("touchmove", handleTouchMove);
-    };
-  }, [sidebarOpen]);
 
   // Zamykaj na mobile po zmianie trasy
   useEffect(() => {
     const isMobile = window.innerWidth < 1024;
-    if (isMobile && sidebarOpen) {
+    if (isMobile) {
       setSidebarOpen(false);
     }
   }, [location.pathname]);
@@ -133,30 +98,17 @@ export const UserSidebar = () => {
     return pathname === path;
   };
 
-  // ✅ HANDLE DRAG END dla sidebara
-  const handleDragEnd = (
-    event: MouseEvent | TouchEvent | PointerEvent,
-    info: PanInfo
-  ) => {
-    const isMobile = window.innerWidth < 1024;
-    if (!isMobile) return;
-
-    // Jeśli przeciągnięto więcej niż 100px w lewo lub velocity jest duże
-    if (info.offset.x < -100 || info.velocity.x < -500) {
-      setSidebarOpen(false);
-    }
-  };
-
   return (
     <>
-      {/* ✅ MOBILE: Swipe indicator (mała belka z lewej) */}
-      {!sidebarOpen && window.innerWidth < 1024 && (
-        <div className="lg:hidden fixed left-0 top-1/2 -translate-y-1/2 z-50 p-1 bg-purple-600/20 rounded-r-lg">
-          <ChevronRight className="w-4 h-4 text-purple-600" />
-        </div>
-      )}
+      {/* Mobile Toggle Button - PRAWA STRONA */}
+      <button
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className="lg:hidden fixed top-4 right-4 z-50 p-3 rounded-lg bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700"
+      >
+        {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+      </button>
 
-      {/* ✅ BACKDROP dla mobile */}
+      {/* Backdrop for mobile */}
       <AnimatePresence>
         {sidebarOpen && window.innerWidth < 1024 && (
           <motion.div
@@ -169,133 +121,125 @@ export const UserSidebar = () => {
         )}
       </AnimatePresence>
 
-      {/* SIDEBAR */}
+      {/* Sidebar - PRAWA STRONA */}
       <AnimatePresence>
         {sidebarOpen && (
           <motion.aside
-            ref={sidebarRef}
-            initial={{ x: -300 }}
+            initial={{ x: 300 }}
             animate={{ x: 0 }}
-            exit={{ x: -300 }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            drag={window.innerWidth < 1024 ? "x" : false}
-            dragConstraints={{ left: 0, right: 0 }}
-            dragElastic={0.2}
-            onDragEnd={handleDragEnd}
-            className="fixed lg:sticky top-0 left-0 h-screen w-64 lg:w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-40 overflow-y-auto sidebar-scrollbar"
+            exit={{ x: 300 }}
+            transition={{ duration: 0.3 }}
+            className="fixed lg:sticky top-0 right-0 h-screen w-64 max-w-[80vw] lg:max-w-none bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 z-40 overflow-hidden flex flex-col"
           >
-            {/* ✅ MOBILE: Drag handle bar */}
-            {window.innerWidth < 1024 && (
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 lg:hidden">
-                <div className="w-1 h-16 bg-gray-300 dark:bg-gray-600 rounded-full" />
-              </div>
-            )}
-
-            <div className="p-4 flex flex-col h-full">
-              {/* Logo */}
-              <div className="flex items-center justify-between mb-8 pt-4">
-                <Link to="/dashboard" className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-lg flex items-center justify-center">
-                    <Sparkles className="w-5 h-5 text-white" />
-                  </div>
-                  <span className="font-bold text-gray-900 dark:text-white">
-                    Smart-Copy.ai
-                  </span>
-                </Link>
-
-                {/* Desktop close button */}
-                <button
-                  onClick={() => setSidebarOpen(false)}
-                  className="lg:block hidden p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-                >
-                  <ChevronLeft className="w-5 h-5 text-gray-500" />
-                </button>
-              </div>
-
-              {/* Navigation */}
-              <nav className="flex-1 space-y-1">
-                {navigation.map((item) => (
+            {/* ✅ SCROLLABLE CONTAINER z overflow-y-auto */}
+            <div className="flex-1 overflow-y-auto sidebar-scrollbar">
+              <div className="p-4 flex flex-col h-full">
+                {/* Logo */}
+                <div className="flex items-center justify-between mb-8 pt-20 lg:pt-4">
                   <Link
-                    key={item.name}
-                    to={item.href}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                      isActive(item.href)
-                        ? "bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400"
-                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                    }`}
+                    to="/dashboard"
+                    className="flex items-center gap-2 min-w-0"
                   >
-                    <item.icon className="w-5 h-5" />
-                    {item.name}
+                    <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Sparkles className="w-5 h-5 text-white" />
+                    </div>
+                    <span className="font-bold text-gray-900 dark:text-white truncate">
+                      Smart-Copy.ai
+                    </span>
                   </Link>
-                ))}
-              </nav>
-
-              {/* Balance Card */}
-              <div className="mb-4 lg:mb-6 p-3 lg:p-4 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    Saldo konta
-                  </span>
-                  <Wallet className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  <button
+                    onClick={() => setSidebarOpen(false)}
+                    className="hidden lg:block p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded flex-shrink-0"
+                  >
+                    <ChevronRight className="w-5 h-5 text-gray-500" />
+                  </button>
                 </div>
-                <p className="text-2xl font-bold text-purple-600 dark:text-purple-400 mb-3">
-                  {balance.toFixed(2)} zł
-                </p>
-                <Link
-                  to="/deposit"
-                  className="btn btn-primary w-full flex items-center justify-center gap-2 text-sm py-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Doładuj konto
-                </Link>
-              </div>
 
-              {/* Theme Toggle */}
-              <button
-                onClick={toggleTheme}
-                className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 mb-2"
-              >
-                {theme === "light" ? (
-                  <>
-                    <Moon className="w-5 h-5" />
-                    Tryb ciemny
-                  </>
-                ) : (
-                  <>
-                    <Sun className="w-5 h-5" />
-                    Tryb jasny
-                  </>
-                )}
-              </button>
+                {/* Navigation */}
+                <nav className="flex-1 space-y-1">
+                  {navigation.map((item) => (
+                    <Link
+                      key={item.name}
+                      to={item.href}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors overflow-hidden ${
+                        isActive(item.href)
+                          ? "bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400"
+                          : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      }`}
+                    >
+                      <item.icon className="w-5 h-5 flex-shrink-0" />
+                      <span className="truncate">{item.name}</span>
+                    </Link>
+                  ))}
+                </nav>
 
-              {/* User Info & Logout */}
-              <div className="border-t border-gray-200 dark:border-gray-700 pt-4 pb-4 lg:pb-0">
-                <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-400 mb-1 px-4 truncate">
-                  {user?.firstName || "Użytkownik"}
+                {/* Balance Card - ✅ FIXED WIDTH */}
+                <div className="mb-4 lg:mb-6 p-3 lg:p-4 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                      Saldo konta
+                    </span>
+                    <Wallet className="w-4 h-4 text-purple-600 dark:text-purple-400 flex-shrink-0" />
+                  </div>
+                  <p className="text-2xl font-bold text-purple-600 dark:text-purple-400 mb-3 truncate">
+                    {balance.toFixed(2)} zł
+                  </p>
+                  <Link
+                    to="/deposit"
+                    className="btn btn-primary w-full flex items-center justify-center gap-2 text-sm py-2 overflow-hidden"
+                  >
+                    <Plus className="w-4 h-4 flex-shrink-0" />
+                    <span className="truncate">Doładuj konto</span>
+                  </Link>
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-500 mb-3 px-4">
-                  {user?.email}
-                </div>
+
+                {/* Theme Toggle */}
                 <button
-                  onClick={handleLogout}
-                  className="flex items-center gap-2 w-full px-4 py-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400"
+                  onClick={toggleTheme}
+                  className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 mb-2 overflow-hidden"
                 >
-                  <LogOut className="w-4 h-4" />
-                  Wyloguj się
+                  {theme === "light" ? (
+                    <>
+                      <Moon className="w-5 h-5 flex-shrink-0" />
+                      <span className="truncate">Tryb ciemny</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sun className="w-5 h-5 flex-shrink-0" />
+                      <span className="truncate">Tryb jasny</span>
+                    </>
+                  )}
                 </button>
+
+                {/* User Info & Logout */}
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-4 pb-4 lg:pb-0">
+                  <div className="text-xs lg:text-sm text-gray-600 dark:text-gray-400 mb-1 px-4 truncate">
+                    {user?.firstName || "Użytkownik"}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-500 mb-3 px-4 truncate">
+                    {user?.email}
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-2 w-full px-4 py-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 overflow-hidden"
+                  >
+                    <LogOut className="w-4 h-4 flex-shrink-0" />
+                    <span className="truncate">Wyloguj się</span>
+                  </button>
+                </div>
               </div>
             </div>
           </motion.aside>
         )}
       </AnimatePresence>
 
-      {/* Desktop Toggle Button */}
-      {!sidebarOpen && window.innerWidth >= 1024 && (
+      {/* Desktop Toggle Button - PRAWA STRONA */}
+      {!sidebarOpen && (
         <button
           onClick={() => setSidebarOpen(true)}
-          className="hidden lg:block fixed top-20 left-0 z-40 p-2 rounded-r-lg bg-white dark:bg-gray-800 shadow-lg border border-l-0 border-gray-200 dark:border-gray-700"
+          className="hidden lg:block fixed top-20 right-0 z-40 p-2 rounded-l-lg bg-white dark:bg-gray-800 shadow-lg border border-r-0 border-gray-200 dark:border-gray-700"
         >
-          <ChevronRight className="w-5 h-5 text-gray-500" />
+          <ChevronLeft className="w-5 h-5 text-gray-500" />
         </button>
       )}
     </>

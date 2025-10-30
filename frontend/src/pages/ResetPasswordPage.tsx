@@ -10,7 +10,7 @@ export const ResetPasswordPage = () => {
   </Helmet>;
   return (
     <Layout showFooter={false}>
-      <div className="min-h-[calc(100vh-64px)] flex items-center justify-center py-12 px-4 bg-gradient-to-br from-purple-50 via-white to-indigo-50">
+      <div className="min-h-[calc(100vh-64px)] flex items-center justify-center py-12 px-4 bg-gradient-to-br from-purple-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
         <ResetPasswordForm />
       </div>
     </Layout>
