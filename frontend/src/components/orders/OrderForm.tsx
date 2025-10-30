@@ -1215,7 +1215,7 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
             <textarea
               {...register("guidelines")}
               rows={4}
-              placeholder="Opisz szczegóły, ton komunikacji, grupy docelowe, słowa kluczowe..."
+              placeholder="Opisz szczegóły, ton komunikacji, grupy docelowe, miejsce publikacji..."
               className="input w-full resize-none bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
             />
           </motion.div>

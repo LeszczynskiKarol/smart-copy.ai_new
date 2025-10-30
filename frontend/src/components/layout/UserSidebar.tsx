@@ -1,6 +1,6 @@
 // frontend/src/components/layout/UserSidebar.tsx
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Link,
   useLocation,
@@ -15,8 +15,6 @@ import {
   Moon,
   Sun,
   LogOut,
-  Menu,
-  X,
   Home,
   Package,
   Plus,
@@ -25,13 +23,12 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, PanInfo } from "framer-motion";
 
 export const UserSidebar = () => {
-  // ✅ DOMYŚLNIE ZAMKNIĘTY NA MOBILE, OTWARTY NA DESKTOP
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     const isMobile = window.innerWidth < 1024;
-    return !isMobile; // false na mobile, true na desktop
+    return !isMobile;
   });
 
   const { logout, user } = useAuthStore();
@@ -39,27 +36,62 @@ export const UserSidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
+  const sidebarRef = useRef<HTMLDivElement>(null);
 
-  // ✅ ZAMYKAJ SIDEBAR NA MOBILE PO ZMIANIE TRASY
+  // ✅ EDGE SWIPE DETECTION (swipe z lewej krawędzi)
+  useEffect(() => {
+    const isMobile = window.innerWidth < 1024;
+    if (!isMobile) return;
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (sidebarOpen) return; // Tylko gdy zamknięty
+
+      const touchX = e.touches[0].clientX;
+      const touchY = e.touches[0].clientY;
+      const deltaX = touchX - touchStartX;
+      const deltaY = Math.abs(touchY - touchStartY);
+
+      // Jeśli start był blisko lewej krawędzi (<20px) i ruch w prawo
+      if (touchStartX < 20 && deltaX > 50 && deltaY < 30) {
+        setSidebarOpen(true);
+      }
+    };
+
+    document.addEventListener("touchstart", handleTouchStart);
+    document.addEventListener("touchmove", handleTouchMove);
+
+    return () => {
+      document.removeEventListener("touchstart", handleTouchStart);
+      document.removeEventListener("touchmove", handleTouchMove);
+    };
+  }, [sidebarOpen]);
+
+  // Zamykaj na mobile po zmianie trasy
   useEffect(() => {
     const isMobile = window.innerWidth < 1024;
     if (isMobile && sidebarOpen) {
       setSidebarOpen(false);
     }
-  }, [location.pathname]); // Tylko pathname, nie cały location
+  }, [location.pathname]);
 
-  // ✅ REAGUJ NA ZMIANĘ ROZMIARU OKNA
+  // Reaguj na zmianę rozmiaru okna
   useEffect(() => {
     const handleResize = () => {
       const isMobile = window.innerWidth < 1024;
-      if (!isMobile && !sidebarOpen) {
-        setSidebarOpen(true); // Otwórz na desktop
-      }
+      setSidebarOpen(!isMobile);
     };
 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [sidebarOpen]);
+  }, []);
 
   // Pobierz saldo użytkownika
   const { data: userData } = useQuery({
@@ -101,30 +133,67 @@ export const UserSidebar = () => {
     return pathname === path;
   };
 
+  // ✅ HANDLE DRAG END dla sidebara
+  const handleDragEnd = (
+    event: MouseEvent | TouchEvent | PointerEvent,
+    info: PanInfo
+  ) => {
+    const isMobile = window.innerWidth < 1024;
+    if (!isMobile) return;
+
+    // Jeśli przeciągnięto więcej niż 100px w lewo lub velocity jest duże
+    if (info.offset.x < -100 || info.velocity.x < -500) {
+      setSidebarOpen(false);
+    }
+  };
+
   return (
     <>
-      {/* Mobile Toggle Button */}
-      <button
-        onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-3 rounded-lg bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700"
-      >
-        {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-      </button>
+      {/* ✅ MOBILE: Swipe indicator (mała belka z lewej) */}
+      {!sidebarOpen && window.innerWidth < 1024 && (
+        <div className="lg:hidden fixed left-0 top-1/2 -translate-y-1/2 z-50 p-1 bg-purple-600/20 rounded-r-lg">
+          <ChevronRight className="w-4 h-4 text-purple-600" />
+        </div>
+      )}
 
-      {/* Sidebar */}
+      {/* ✅ BACKDROP dla mobile */}
+      <AnimatePresence>
+        {sidebarOpen && window.innerWidth < 1024 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden fixed inset-0 bg-black/50 z-30"
+          />
+        )}
+      </AnimatePresence>
+
+      {/* SIDEBAR */}
       <AnimatePresence>
         {sidebarOpen && (
           <motion.aside
+            ref={sidebarRef}
             initial={{ x: -300 }}
             animate={{ x: 0 }}
             exit={{ x: -300 }}
-            transition={{ duration: 0.3 }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            drag={window.innerWidth < 1024 ? "x" : false}
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.2}
+            onDragEnd={handleDragEnd}
             className="fixed lg:sticky top-0 left-0 h-screen w-64 lg:w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-40 overflow-y-auto sidebar-scrollbar"
-            // ✅ DODAJ KLASĘ sidebar-scrollbar
           >
+            {/* ✅ MOBILE: Drag handle bar */}
+            {window.innerWidth < 1024 && (
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 lg:hidden">
+                <div className="w-1 h-16 bg-gray-300 dark:bg-gray-600 rounded-full" />
+              </div>
+            )}
+
             <div className="p-4 flex flex-col h-full">
               {/* Logo */}
-              <div className="flex items-center justify-between mb-8 pt-20 lg:pt-4">
+              <div className="flex items-center justify-between mb-8 pt-4">
                 <Link to="/dashboard" className="flex items-center gap-2">
                   <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-lg flex items-center justify-center">
                     <Sparkles className="w-5 h-5 text-white" />
@@ -133,11 +202,13 @@ export const UserSidebar = () => {
                     Smart-Copy.ai
                   </span>
                 </Link>
+
+                {/* Desktop close button */}
                 <button
                   onClick={() => setSidebarOpen(false)}
                   className="lg:block hidden p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
                 >
-                  <ChevronLeft className="w-5 h-5 text-gray-500 dark:text-gray-500" />
+                  <ChevronLeft className="w-5 h-5 text-gray-500" />
                 </button>
               </div>
 
@@ -218,13 +289,13 @@ export const UserSidebar = () => {
         )}
       </AnimatePresence>
 
-      {/* ✅ Desktop Toggle Button - Z MARGINESEM OD LEWEJ */}
-      {!sidebarOpen && (
+      {/* Desktop Toggle Button */}
+      {!sidebarOpen && window.innerWidth >= 1024 && (
         <button
           onClick={() => setSidebarOpen(true)}
           className="hidden lg:block fixed top-20 left-0 z-40 p-2 rounded-r-lg bg-white dark:bg-gray-800 shadow-lg border border-l-0 border-gray-200 dark:border-gray-700"
         >
-          <ChevronRight className="w-5 h-5 text-gray-500 dark:text-gray-500" />
+          <ChevronRight className="w-5 h-5 text-gray-500" />
         </button>
       )}
     </>

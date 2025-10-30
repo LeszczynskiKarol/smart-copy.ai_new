@@ -51,13 +51,13 @@ export const HomePage = () => {
       icon: Globe,
       title: "8 języków",
       description:
-        "Tworzenie tekstów AI w polskim, angielskim, niemieckim, hiszpańskim, francuskim, włoskim, ukraińskim i rosyjskim.",
+        "Tworzenie tekstów AI w polskim, angielskim, niemieckim, hiszpańskim, francuskim, włoskim, ukraińskim i rosyjskim. Wpisz wytyczne po polsku, generuj treść w innym języku.",
     },
     {
       icon: Edit3,
       title: "Edytor WYSIWYG",
       description:
-        "Pełna kontrola nad treścią - edytuj wygenerowany tekst w intuicyjnym edytorze z formatowaniem HTML.",
+        "Pełna kontrola nad treścią - edytuj w czasie rzeczywistym wygenerowany tekst w intuicyjnym edytorze z formatowaniem HTML.",
     },
     {
       icon: Download,
@@ -177,7 +177,7 @@ export const HomePage = () => {
     {
       question: "Jak długie teksty może wygenerować AI?",
       answer:
-        "Smart-Copy obsługuje teksty od 2000 znaków (1 strona) do ok. 150,000 znaków (ok. 75 stron). Możesz zamówić krótkie opisy produktów, długie artykuł blogowe, tekst do ebooka czy raport analityczny.",
+        "Smart-Copy obsługuje teksty od 2000 znaków (1 strona) do ok. 300 000 znaków (ok. 150 stron). Możesz zamówić krótkie opisy produktów, długie artykuł blogowe, tekst do ebooka czy raport analityczny.",
     },
     {
       question: "Czy mogę dodać własne materiały źródłowe?",
@@ -201,14 +201,14 @@ export const HomePage = () => {
     {
       icon: Maximize2,
       title: "Bardzo długie teksty",
-      subtitle: "Do 150,000 znaków w jednym zleceniu",
+      subtitle: "Do 300 000 znaków w jednym zleceniu",
       description:
-        "W przeciwieństwie do innych generatorów AI, które limitują długość, Smart-Copy.ai pozwala tworzyć kompleksowe treści do 150,000 znaków (około 75 stron A4). Idealne do długich raportów, e-booków, dokumentacji technicznej czy obszernych artykułów merytorycznych.",
+        "W przeciwieństwie do innych generatorów AI, które limitują długość, Smart-Copy.ai pozwala tworzyć kompleksowe treści do 300 000 znaków (około 150 stron A4). Idealne do długich raportów, e-booków, dokumentacji technicznej czy obszernych artykułów merytorycznych.",
       features: [
-        "Pojedynczy artykuł do 75 stron",
+        "Ebooki, analizy, opracowania, raporty do 150 stron",
         "Spójność treści na całej długości",
         "Automatyczna struktura i formatowanie",
-        "Profesjonalne opracowania, raporty i analizy",
+        "Optymalizacja SEO, poprawność językowa",
       ],
     },
     {
@@ -392,7 +392,7 @@ export const HomePage = () => {
 
                 <a
                   href="#jak-dziala"
-                  className="btn btn-secondary text-lg px-10 py-5 border-2 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  className="btn btn-secondary text-lg px-10 py-5 border-2 hover:bg-gray-50 dark:hover:bg-gray-200 text-gray-700 dark:text-gray-700"
                 >
                   Zobacz, jak działa
                 </a>

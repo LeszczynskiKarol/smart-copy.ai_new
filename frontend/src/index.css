@@ -147,3 +147,31 @@
 .ProseMirror em {
   font-style: italic;
 }
+
+/* Scrollbar dla sidebar */
+.sidebar-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Jasny motyw */
+.sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background: #d1d5db; /* gray-300 */
+  border-radius: 3px;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af; /* gray-400 */
+}
+
+/* Ciemny motyw */
+.dark .sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background: #6b7280; /* gray-500 */
+}
+
+.dark .sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af; /* gray-400 */
+}
