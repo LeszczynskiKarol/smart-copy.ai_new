@@ -200,7 +200,10 @@ export const DepositPage = () => {
                   <p className="font-semibold mb-1">Informacje:</p>
                   <ul className="list-disc list-inside space-y-1">
                     <li>Minimalna kwota doładowania: 5 PLN</li>
-                    <li>Płatności obsługuje Stripe (karta, BLIK, P24)</li>
+                    <li>
+                      Płatności obsługuje Stripe (karta, BLIK, Google Pay,
+                      PayPal, Apple Pay)
+                    </li>
                     <li>Środki są dodawane natychmiast po płatności</li>
                     {discount > 0 && (
                       <li className="font-bold text-green-700 dark:text-green-400">

@@ -52,7 +52,7 @@ export class StripeService {
       : `${process.env.FRONTEND_URL}/dashboard?payment=success&amount=${creditAmount}`;
 
     const session = await getStripe().checkout.sessions.create({
-      payment_method_types: ["card", "blik", "p24"],
+      payment_method_types: ["card", "blik"],
       customer_email: user.email,
       line_items: [
         {

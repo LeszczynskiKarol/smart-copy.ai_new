@@ -351,8 +351,8 @@ const PolishPrivacy = () => (
       <ul className="list-disc pl-6 space-y-3">
         <li>
           <strong>Stripe Inc.</strong> (USA) – obsługa płatności kartą, BLIK,
-          Przelewy24. Stripe posiada certyfikat PCI DSS Level 1. Dane
-          przekazywane na podstawie Standardowych Klauzul Umownych UE.
+          PayPal, Google Pay, Apple Pay. Stripe posiada certyfikat PCI DSS Level
+          1. Dane przekazywane na podstawie Standardowych Klauzul Umownych UE.
         </li>
         <li>
           <strong>Anthropic PBC</strong> (USA) – dostawca modelu AI Claude
@@ -1029,8 +1029,9 @@ const EnglishPrivacy = () => (
       <ul className="list-disc pl-6 space-y-3">
         <li>
           <strong>Stripe Inc.</strong> (USA) – payment processing (card, BLIK,
-          Przelewy24). Stripe holds PCI DSS Level 1 certification. Data
-          transferred based on EU Standard Contractual Clauses.
+          Apple Pay, PayPal, Google Pay). Stripe holds PCI DSS Level 1
+          certification. Data transferred based on EU Standard Contractual
+          Clauses.
         </li>
         <li>
           <strong>Anthropic PBC</strong> (USA) – provider of Claude AI model

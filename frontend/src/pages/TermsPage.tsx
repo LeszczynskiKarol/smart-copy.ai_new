@@ -307,8 +307,8 @@ const PolishTerms = () => (
           <ul className="list-disc pl-6 mt-2">
             <li>Karty płatnicze (Visa, Mastercard, American Express)</li>
             <li>BLIK</li>
-            <li>Przelewy24</li>
             <li>Apple Pay / Google Pay</li>
+            <li>PayPal</li>
           </ul>
         </li>
         <li>
@@ -872,8 +872,8 @@ const EnglishTerms = () => (
           <ul className="list-disc pl-6 mt-2">
             <li>Payment cards (Visa, Mastercard, American Express)</li>
             <li>BLIK</li>
-            <li>Przelewy24</li>
             <li>Apple Pay / Google Pay</li>
+            <li>PayPal</li>
           </ul>
         </li>
         <li>
