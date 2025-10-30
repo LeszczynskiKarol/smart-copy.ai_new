@@ -859,7 +859,8 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
     } catch (error: any) {
       if (error.response?.status === 402) {
         const data = error.response.data;
-        toast.error(data.message);
+        // ✅ Zmień na pozytywny komunikat o przekierowaniu
+        toast.loading("Przekierowuję do płatności...", { duration: 2000 });
         if (data.stripeUrl) {
           window.location.href = data.stripeUrl;
         }
