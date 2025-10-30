@@ -60,21 +60,21 @@ export class StripeService {
             currency: "pln",
             product_data: {
               name: orderId
-                ? "Doładowanie konta + Zamówienie"
+                ? "Realizacja zamówienia w Smart-Copy.ai"
                 : `Doładowanie konta Smart-Copy.ai${
                     discount > 0
                       ? ` (Rabat ${(discount * 100).toFixed(0)}%)`
                       : ""
                   }`,
               description: orderId
-                ? `Środki na realizację zamówienia`
+                ? `Środki na realizację zamówienia w Smart-Copy.ai`
                 : discount > 0
-                ? `Doładowanie: ${creditAmount.toFixed(
+                ? `Doładowanie w Smart-Copy.ai: ${creditAmount.toFixed(
                     2
                   )} zł • Rabat: -${discountAmount.toFixed(
                     2
                   )} zł • Do zapłaty: ${finalPrice.toFixed(2)} zł`
-                : "Dodanie środków na konto",
+                : "Dodanie środków na konto w Smart-Copy.ai",
             },
             unit_amount: Math.round(finalPrice * 100),
           },
