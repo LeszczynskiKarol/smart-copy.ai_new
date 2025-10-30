@@ -266,7 +266,7 @@ export const OrdersPage = () => {
       <div className="flex-1 p-8">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
             <div>
               <button
                 onClick={() => navigate("/dashboard")}
@@ -284,7 +284,7 @@ export const OrdersPage = () => {
             </div>
             <button
               onClick={handleNewOrder}
-              className="btn btn-primary flex items-center gap-2"
+              className="btn btn-primary flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <Plus className="w-5 h-5" />
               Nowe zamówienie
