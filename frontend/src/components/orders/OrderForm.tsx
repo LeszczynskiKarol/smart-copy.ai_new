@@ -1,6 +1,5 @@
 // frontend/src/components/orders/OrderForm.tsx
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -37,7 +36,24 @@ const MAX_TEXTS_PER_ORDER = 50; // ← NOWY LIMIT
 
 const saveOrderDraft = (data: { currentForm: any; texts: any[] }) => {
   try {
-    localStorage.setItem(ORDER_DRAFT_KEY, JSON.stringify(data));
+    // ✅ Usuń pliki z currentForm - nie mogą być serializowane
+    const formToSave = {
+      ...data.currentForm,
+      userSources: {
+        urls: data.currentForm.userSources?.urls || [],
+        files: [], // ❌ Pliki NIE MOGĄ być zapisane w localStorage
+      },
+    };
+
+    localStorage.setItem(
+      ORDER_DRAFT_KEY,
+      JSON.stringify({
+        currentForm: formToSave,
+        texts: data.texts,
+      })
+    );
+
+    console.log("✅ Draft saved (without files)");
   } catch (error) {
     console.error("Failed to save draft:", error);
   }
@@ -121,7 +137,6 @@ const textSchema = z
 type TextFormValues = z.infer<typeof textSchema>;
 
 export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
-  const [, setSearchParams] = useSearchParams();
   const [texts, setTexts] = useState<TextFormValues[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -165,37 +180,78 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
 
   // PRZYWRACANIE DRAFTU
   useEffect(() => {
-    const draft = localStorage.getItem(ORDER_DRAFT_KEY);
-    if (draft) {
-      const urlParams = new URLSearchParams(window.location.search);
-      const payment = urlParams.get("payment");
+    const urlParams = new URLSearchParams(window.location.search);
+    const payment = urlParams.get("payment");
+    const orderId = urlParams.get("orderId");
 
-      if (payment === "success") {
-        clearOrderDraft();
-        return;
-      }
+    // Jeśli payment=success - wyczyść draft
+    if (payment === "success") {
+      clearOrderDraft();
+      return;
+    }
 
-      if (payment === "cancelled") {
+    // ✅ KLUCZOWA ZMIANA: Sprawdzaj orderId!
+    if (payment === "cancelled" && orderId) {
+      const draft = localStorage.getItem(ORDER_DRAFT_KEY);
+
+      if (draft) {
         try {
           const parsedDraft = JSON.parse(draft);
-          if (parsedDraft.texts) {
+
+          // 1. Przywróć listę tekstów
+          if (parsedDraft.texts && Array.isArray(parsedDraft.texts)) {
             setTexts(parsedDraft.texts);
           }
+
+          // 2. Przywróć aktualny formularz
           if (parsedDraft.currentForm) {
-            reset(parsedDraft.currentForm);
+            const formData = parsedDraft.currentForm;
+
+            reset({
+              topic: formData.topic || "",
+              length: formData.length || 1,
+              lengthUnit: formData.lengthUnit || "PAGES",
+              language: formData.language || "pl",
+              textType: formData.textType || "",
+              customType: formData.customType || "",
+              guidelines: formData.guidelines || "",
+              userSources: { urls: [], files: [] },
+              seoData: { keywords: [], links: [] },
+            });
+
+            // 3. Przywróć URLe (pliki NIE MOGĄ być serializowane!)
+            if (formData.userSources?.urls) {
+              setUrls(formData.userSources.urls);
+            }
+
+            // 4. Przywróć SEO
+            if (formData.seoData?.keywords) {
+              setSeoKeywords(formData.seoData.keywords);
+            }
+            if (formData.seoData?.links) {
+              setSeoLinks(formData.seoData.links);
+            }
           }
+
           toast.error("Płatność anulowana. Przywrócono formularz zamówienia.", {
             duration: 5000,
           });
+
           clearOrderDraft();
-          setSearchParams({});
+          // ❌ USUŃ TO: setSearchParams({});
+          // OrdersPage już to obsłuży!
         } catch (error) {
           console.error("Failed to restore draft:", error);
+          toast.error("Nie udało się przywrócić formularza");
           clearOrderDraft();
         }
+      } else {
+        // Brak draftu - tylko pokaż komunikat
+        toast.error("Płatność anulowana", { duration: 4000 });
+        // ❌ USUŃ TO: setSearchParams({});
       }
     }
-  }, []);
+  }, [reset]); // ✅ Usuń setSearchParams z dependencies!
 
   const watchedTopic = watch("topic", "");
   const watchedLength = watch("length", 1);

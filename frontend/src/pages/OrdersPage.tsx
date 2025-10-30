@@ -125,6 +125,7 @@ export const OrdersPage = () => {
   const [view, setView] = useState<"list" | "new">("list");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const toastShownRef = useRef(false);
+  const cancelledHandledRef = useRef(false);
   const navigate = useNavigate();
 
   const {
@@ -184,30 +185,53 @@ export const OrdersPage = () => {
     const payment = searchParams.get("payment");
     const orderId = searchParams.get("orderId");
 
+    console.log("📍 OrdersPage URL params:", { mode, payment, orderId });
+
     // CANCELLED + orderId = powrót z płatności zamówienia
-    if (payment === "cancelled" && orderId) {
-      setView("new"); // Pokaż formularz
+    if (payment === "cancelled" && orderId && !cancelledHandledRef.current) {
+      console.log("🔄 Setting view to NEW (cancelled payment)");
+      cancelledHandledRef.current = true; // ✅ Oznacz jako obsłużone
+      setView("new");
+
+      // Czyść parametry po krótkim opóźnieniu
+      setTimeout(() => {
+        setSearchParams({});
+      }, 500);
+      return;
     }
+
     // SUCCESS z orderId = opłacone zamówienie
-    else if (payment === "success" && orderId && !toastShownRef.current) {
+    if (payment === "success" && orderId && !toastShownRef.current) {
       toast.success("Zamówienie opłacone pomyślnie! 🎉");
       toastShownRef.current = true;
       setView("list");
       setSearchParams({});
       refetch();
+      return;
     }
+
     // SUCCESS bez orderId = doładowanie konta
-    else if (payment === "success" && !orderId) {
+    if (payment === "success" && !orderId) {
       setSearchParams({});
-      setView("list"); // ← DODAJ
+      setView("list");
+      return;
     }
+
     // mode=new = nowe zamówienie
-    else if (mode === "new") {
+    if (mode === "new") {
       setView("new");
+      return;
     }
-    // DOMYŚLNIE = lista zamówień
-    else {
-      setView("list"); // ← KLUCZOWE!
+
+    // ✅ KLUCZOWE: Jeśli cancelled został obsłużony, NIE ZMIENIAJ VIEW!
+    if (cancelledHandledRef.current && !mode && !payment) {
+      console.log("⏸️ Cancelled already handled, keeping view=new");
+      return;
+    }
+
+    // DOMYŚLNIE = lista zamówień (tylko jeśli cancelled nie był obsłużony)
+    if (!cancelledHandledRef.current) {
+      setView("list");
     }
   }, [searchParams, setSearchParams, refetch]);
 
