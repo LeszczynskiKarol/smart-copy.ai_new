@@ -1,7 +1,7 @@
 // frontend/src/pages/NotFoundPage.tsx
 import { Link } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
-import { Home, Search } from "lucide-react";
+import { Home } from "lucide-react";
 import { Helmet } from "react-helmet-async";
 
 export const NotFoundPage = () => {
