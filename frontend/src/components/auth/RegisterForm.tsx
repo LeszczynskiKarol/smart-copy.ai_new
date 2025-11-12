@@ -1,8 +1,9 @@
 // frontend/src/components/auth/Registerform.tsx
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useAuthStore } from "@/store/authStore";
 import { z } from "zod";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -51,6 +52,7 @@ export const RegisterForm = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { setAuth } = useAuthStore();
 
   const {
     register,
@@ -106,6 +108,48 @@ export const RegisterForm = () => {
     }
   };
 
+  const handleGoogleRegister = async (response: any) => {
+    try {
+      const result = await authApi.googleLogin(response.credential);
+      toast.success("Rejestracja przez Google pomyślna!");
+
+      if (result.accessToken && result.refreshToken && result.user) {
+        setAuth(result.user, result.accessToken, result.refreshToken);
+
+        if (result.user.role === "ADMIN") {
+          navigate("/admin");
+        } else {
+          navigate("/dashboard");
+        }
+      }
+    } catch (error) {
+      const errorMessage = handleApiError(error);
+      toast.error(errorMessage);
+    }
+  };
+
+  useEffect(() => {
+    if (window.google) {
+      window.google.accounts.id.initialize({
+        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+        callback: handleGoogleRegister,
+      });
+
+      setTimeout(() => {
+        window.google?.accounts.id.renderButton(
+          document.getElementById("googleButtonRegister"),
+          {
+            theme: "outline",
+            size: "large",
+            width: "100%",
+            text: "signup_with",
+            shape: "rectangular",
+          }
+        );
+      }, 100);
+    }
+  }, []);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -122,7 +166,20 @@ export const RegisterForm = () => {
             Generuj wartościowe treści z AI
           </p>
         </div>
+        <div className="google-button-wrapper mb-4">
+          <div id="googleButtonRegister" style={{ width: "100%" }}></div>
+        </div>
 
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+              lub
+            </span>
+          </div>
+        </div>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           {/* Imię i nazwisko */}
           <div className="grid grid-cols-1 gap-4">
@@ -364,7 +421,6 @@ export const RegisterForm = () => {
             )}
           </button>
         </form>
-
         {/* reCAPTCHA info */}
         <p className="text-xs text-gray-500 text-center mt-4">
           Strona chroniona przez reCAPTCHA Google -{" "}
@@ -387,7 +443,6 @@ export const RegisterForm = () => {
           </a>
           .
         </p>
-
         {/* Login Link */}
         <p className="text-center  text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 mt-6">
           Masz już konto?{" "}

@@ -18,6 +18,7 @@ model User {
   password          String
   firstName         String?
   lastName          String?
+  googleId          String?   @unique
   role              Role      @default(USER)
   isVerified        Boolean   @default(false)
   verificationCode  String?

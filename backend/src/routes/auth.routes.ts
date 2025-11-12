@@ -2,6 +2,7 @@
 
 import { FastifyInstance } from "fastify";
 import { prisma } from "../lib/prisma";
+import { verifyGoogleToken } from "../services/google-auth.service";
 import { authenticateToken } from "../middleware/auth.middleware";
 import { AuthService } from "../services/auth.service";
 import { AppError } from "../utils/helpers";
@@ -65,6 +66,25 @@ export const authRoutes = async (fastify: FastifyInstance) => {
       return reply.code(500).send({ error: "Wystąpił błąd serwera" });
     }
   });
+
+  fastify.post<{ Body: { googleToken: string } }>(
+    "/google",
+    async (request, reply) => {
+      try {
+        const { googleToken } = request.body;
+        const result = await authService.googleLogin(googleToken);
+        return reply.code(200).send(result);
+      } catch (error) {
+        if (error instanceof AppError) {
+          return reply.code(error.statusCode).send({
+            error: error.message,
+          });
+        }
+        console.error("Google login error:", error);
+        return reply.code(500).send({ error: "Wystąpił błąd serwera" });
+      }
+    }
+  );
 
   // POST /api/auth/resend-code
   fastify.post<{ Body: ResendCodeInput }>(

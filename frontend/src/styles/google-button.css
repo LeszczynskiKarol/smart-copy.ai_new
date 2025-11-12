@@ -1,0 +1,36 @@
+/* Google Button Wrapper */
+.google-button-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Google Button Container */
+#googleButton,
+#googleButtonRegister {
+  width: 100% !important;
+  max-width: 100% !important;
+  display: flex !important;
+  justify-content: center !important;
+}
+
+#googleButton > div,
+#googleButtonRegister > div {
+  width: 100% !important;
+  display: flex !important;
+  justify-content: center !important;
+}
+
+#googleButton iframe,
+#googleButtonRegister iframe {
+  width: 100% !important;
+  display: block !important;
+  margin: 0 auto !important;
+}
+
+/* Dark mode - invert colors */
+.dark .google-button-wrapper {
+  filter: invert(0.9) hue-rotate(180deg);
+  border-radius: 8px;
+}

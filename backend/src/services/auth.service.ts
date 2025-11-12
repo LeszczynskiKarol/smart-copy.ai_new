@@ -1,5 +1,6 @@
 // backend/src/services/auth.service.ts
 import { PrismaClient } from "@prisma/client";
+import { verifyGoogleToken } from "./google-auth.service";
 import bcrypt from "bcrypt";
 import { addMinutes, addHours } from "date-fns";
 import {
@@ -463,6 +464,65 @@ export class AuthService {
 
     return {
       message: "Hasło zostało pomyślnie zmienione",
+    };
+  }
+  async googleLogin(googleToken: string) {
+    const googleUser = await verifyGoogleToken(googleToken);
+
+    if (!googleUser?.email) {
+      throw new AppError(400, "Nieprawidłowe dane Google");
+    }
+
+    let user = await prisma.user.findFirst({
+      where: {
+        OR: [{ email: googleUser.email }, { googleId: googleUser.sub }],
+      },
+    });
+
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          email: googleUser.email,
+          googleId: googleUser.sub,
+          firstName: googleUser.given_name,
+          lastName: googleUser.family_name,
+          isVerified: true,
+          acceptedTerms: true,
+          password: await bcrypt.hash(Math.random().toString(36), 10),
+        },
+      });
+    } else if (!user.googleId) {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { googleId: googleUser.sub },
+      });
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+
+    const accessToken = generateAccessToken({
+      userId: user.id,
+      email: user.email,
+    });
+    const refreshToken = generateRefreshToken({
+      userId: user.id,
+      email: user.email,
+    });
+
+    return {
+      message: "Logowanie Google pomyślne",
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+      },
     };
   }
 }
