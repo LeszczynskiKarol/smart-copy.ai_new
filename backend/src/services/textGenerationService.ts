@@ -1331,7 +1331,7 @@ ODPOWIEDŹ (TYLKO VALID JSON, BEZ \`\`\`json):`;
 
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-5-20250929",
-    max_tokens: writersCount === 1 ? 4000 : 8000,
+    max_tokens: writersCount === 1 ? 8000 : 12000,
     temperature: 0.5,
     messages: [{ role: "user", content: prompt }],
   });
