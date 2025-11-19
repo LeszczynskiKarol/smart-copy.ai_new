@@ -793,9 +793,23 @@ export async function processOrder(orderId: string) {
 
         // Upewnij się że mamy źródła
         if (allScrapedResults.length === 0) {
-          throw new Error(
-            "❌ KRYTYCZNY BŁĄD: Brak źródeł do generowania treści!"
-          );
+          console.warn("\n⚠️⚠️⚠️ BRAK ŹRÓDEŁ - TRYB AWARYJNY");
+          console.warn("   Generowanie treści NA PODSTAWIE WIEDZY CLAUDE'A");
+          console.warn("   Bez materiałów zewnętrznych\n");
+
+          // Zapisz informację o braku źródeł
+          const contentData = {
+            googleQuery: googleQuery || "",
+            noSourcesMode: true,
+            reason: "Brak dostępnych źródeł do scrapowania",
+            userSources: userSourcesData || null,
+            scrapedContent: [],
+          };
+
+          await prisma.text.update({
+            where: { id: text.id },
+            data: { content: JSON.stringify(contentData, null, 2) },
+          });
         }
 
         // ZAPISZ W BAZIE
@@ -828,6 +842,7 @@ export async function processOrder(orderId: string) {
             status: r.status,
             isUserSource: r.isUserSource || false,
           })),
+          noSourcesAvailable: allScrapedResults.length === 0,
         };
 
         await prisma.text.update({
@@ -945,7 +960,8 @@ function extractSourcesFromText(text: any): string {
     }
 
     if (!combined) {
-      console.error("❌ KRYTYCZNY BŁĄD: Brak źródeł do zwrócenia!");
+      console.error("⚠️ Brak źródeł - generowanie bez materiałów źródłowych");
+      return "BRAK DOSTĘPNYCH ŹRÓDEŁ - WYGENERUJ TREŚĆ NA PODSTAWIE WIEDZY OGÓLNEJ";
     }
 
     return combined;
@@ -1076,9 +1092,15 @@ ${
     : ""
 }
 ═══════════════════════════════════════════════════════════════
-${hasUserSources ? "MATERIAŁY ŹRÓDŁOWE (UŻYTKOWNIK + GOOGLE):" : "ŹRÓDŁA:"}
-═══════════════════════════════════════════════════════════════
-${sources}
+${
+  sources && sources.length > 50
+    ? (hasUserSources
+        ? "MATERIAŁY ŹRÓDŁOWE (UŻYTKOWNIK + GOOGLE):"
+        : "ŹRÓDŁA:") +
+      "\n" +
+      sources
+    : "⚠️ BRAK ŹRÓDEŁ ZEWNĘTRZNYCH - WYGENERUJ TREŚĆ NA PODSTAWIE WIEDZY OGÓLNEJ\nUżyj swojej wiedzy i kreatywności aby stworzyć wartościową, merytoryczną treść."
+}
 ═══════════════════════════════════════════════════════════════
 ⚠️⚠️⚠️ KRYTYCZNE - ZARZĄDZANIE DŁUGOŚCIĄ:
 ═══════════════════════════════════════════════════════════════
@@ -1823,7 +1845,12 @@ export async function generateContent(textId: string) {
     console.log(`${text.length >= 5000 ? "📝 Z WSTĘPEM" : "📝 BEZ WSTĘPU"}`);
 
     const sources = extractSourcesFromText(text);
-    if (!sources) throw new Error("Brak źródeł");
+    if (!sources || sources === "") {
+      console.warn(
+        "⚠️ Brak źródeł - generowanie treści bez materiałów zewnętrznych"
+      );
+      // NIE rzucaj błędu - kontynuuj z pustym stringiem
+    }
 
     const contentData = JSON.parse(text.content || "{}");
     const userSourcesArray = (contentData.scrapedContent || []).filter(
