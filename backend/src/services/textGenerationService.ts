@@ -1586,16 +1586,13 @@ async function generateWithStructure(
   const partLength = writerAssignment.targetLength;
   const maxTokens = calculateMaxTokens(partLength);
 
-  // ✅ BARDZO AGRESYWNE CELE
-  const minLength = Math.floor(partLength * 0.9); // 90%
-  const targetLength = Math.ceil(partLength * 1.0); // ✅ 100% (było 110%)
-  const maxLength = Math.ceil(partLength * 1.05); // ✅ 105% (było 115%)
+  const minLength = Math.floor(partLength * 0.9);
+  const targetLength = Math.ceil(partLength * 1.0);
+  const maxLength = Math.ceil(partLength * 1.05);
 
-  // ✅ OBLICZ WYMAGANE LISTY I TABELE DLA TEJ CZĘŚCI
   const requiredLists = Math.max(0, Math.floor(partLength / 50000));
   const requiredTables = Math.max(1, Math.floor(partLength / 15000));
 
-  // ✅ INFORMACJA O POPRZEDNICH CZĘŚCIACH
   const contextInfo = part
     ? `
 ═══════════════════════════════════════════════════════════════
@@ -1646,6 +1643,23 @@ ${seoInstructions}
 ⚠️⚠️⚠️ Lepiej ${targetLength} niż ${minLength}!
 
 ═══════════════════════════════════════════════════════════════
+⚠️⚠️⚠️ KRYTYCZNE - CO MASZ NAPISAĆ ⚠️⚠️⚠️
+═══════════════════════════════════════════════════════════════
+
+NIE PISZ SAMEJ STRUKTURY!
+NIE PISZ SZKICU!
+NIE PISZ PLANU!
+
+NAPISZ PEŁNĄ, KOMPLETNĄ TREŚĆ TEKSTU!
+
+Poniżej widzisz STRUKTURĘ - to tylko PLAN tego co masz napisać.
+Twoim zadaniem jest WYPEŁNIĆ tę strukturę PEŁNĄ TREŚCIĄ.
+
+Każde <h2> i <h3> musi mieć ROZBUDOWANE akapity <p> z merytoryczną treścią.
+Każdy akapit powinien mieć 300-500 znaków.
+NIE powtarzaj struktury - NAPISZ PRAWDZIWY TEKST!
+
+═══════════════════════════════════════════════════════════════
 📋 WYMAGANE ELEMENTY DLA TEJ CZĘŚCI:
 ═══════════════════════════════════════════════════════════════
 
@@ -1653,7 +1667,7 @@ ${
   requiredLists > 0
     ? `✅ OBOWIĄZKOWE LISTY: ${requiredLists}
    - Każda lista: <ul> lub <ol> z 5-7 elementami
-   - Każdy <li>: 50-100 znaków
+   - Każdy <li>: 50-100 znaków PEŁNEJ TREŚCI (nie punktów planu!)
 `
     : ""
 }
@@ -1661,6 +1675,7 @@ ${
 ✅ OBOWIĄZKOWE TABELE: ${requiredTables}
    - Każda tabela: 4+ kolumny × 6-8 wierszy
    - Użyj <table>, <thead>, <tbody>, <tr>, <th>, <td>
+   - Tabela z PRAWDZIWYMI DANYMI, nie przykładami!
    - Tabela dodaje ~1000-1500 znaków!
 
 ═══════════════════════════════════════════════════════════════
@@ -1670,22 +1685,18 @@ KRYTYCZNE ZASADY FORMATOWANIA HTML:
 1. Pisz TYLKO czysty HTML - bez <!DOCTYPE>, <html>, <head>, <body>
 2. ${
     part?.number === 1
-      ? "Rozpocznij od: <h1>Tytuł</h1>"
+      ? "Rozpocznij od: <h1>Pełny tytuł tekstu zgodny z tematem</h1>"
       : "Kontynuuj od poprzedniej części - NIE dodawaj <h1>"
   }
 3. ${
     includeIntro && part?.number === 1
-      ? "Po tytule wstęp: <p>Wstęp... (500-600 znaków)</p>"
+      ? "Po tytule PEŁNY wstęp: <p>TREŚĆ wstępu minimum 400-600 znaków PRAWDZIWEJ TREŚCI</p>"
       : part?.number === 1
-      ? "Po tytule BEZPOŚREDNIO treść"
+      ? "Po tytule BEZPOŚREDNIO PEŁNA treść"
       : ""
   }
-4. Używaj <h2>, <h3>, <p>, <ul>, <ol>, <table>, <strong>, <em>
-5. ${
-    part?.number === part?.total
-      ? "Zakończ na </p> + dodaj ZAKOŃCZENIE (400 znaków)"
-      : "Zakończ na pełnym tagu"
-  }
+4. Każde <h2>, <h3> to NAGŁÓWKI sekcji - po nich MUSZĄ być akapity <p> z PEŁNĄ TREŚCIĄ
+5. NIE PISZ "Treść sekcji 1..." - NAPISZ PRAWDZIWĄ TREŚĆ!
 
 ═══════════════════════════════════════════════════════════════
 ZASADY TREŚCI:
@@ -1693,14 +1704,17 @@ ZASADY TREŚCI:
 
 1. Język: ${text.language}
 2. ZAKAZ kopiowania ze źródeł
-3. 🔴 ZAKAZ POWTÓRZEŃ ${
-    part && part.completedSections
-      ? `- już napisane: ${part.completedSections.join(", ")}`
-      : ""
-  }
-4. Oryginalny, wartościowy, szczegółowy
-5. 🎯 DĄŻYSZ DO ${targetLength} ZNAKÓW!
-6. 📋 DODAJ ${requiredTables} tabel${
+3. PISZ MERYTORYCZNĄ, WARTOŚCIOWĄ TREŚĆ - nie szkic!
+4. Każdy akapit to MINIMUM 3-4 zdania pełnej treści
+5. 🎯 DĄŻYSZ DO ${targetLength} ZNAKÓW PRAWDZIWEJ TREŚCI!
+${
+  part && part.completedSections
+    ? `6. 🔴 ZAKAZ POWTÓRZEŃ - już napisane: ${part.completedSections.join(
+        ", "
+      )}`
+    : ""
+}
+7. 📋 DODAJ ${requiredTables} tabel${
     requiredLists > 0 ? ` i ${requiredLists} list` : ""
   }!
 
@@ -1713,8 +1727,22 @@ ${
     : ""
 }
 
+⚠️⚠️⚠️ PRZYKŁAD ZŁEGO WYKONANIA (NIE RÓB TAK!):
+<h2>Sekcja 1: Wprowadzenie</h2>
+<p>Treść wprowadzenia...</p>
+<h3>Podsekcja 1.1</h3>
+<p>Opis podsekcji...</p>
+
+✅✅✅ PRZYKŁAD DOBREGO WYKONANIA (TAK RÓB!):
+<h2>Struktura pracy magisterskiej</h2>
+<p>Praca magisterska to złożony dokument naukowy, który wymaga przestrzegania określonych standardów formalnych i metodologicznych. Każdy element pracy, od strony tytułowej po bibliografię, pełni istotną funkcję w prezentacji przeprowadzonych badań i wniosków. Właściwe zrozumienie struktury pracy pozwala na efektywne planowanie procesu pisania oraz uniknięcie typowych błędów.</p>
+<h3>Elementy wstępne</h3>
+<p>Do elementów wstępnych pracy magisterskiej zaliczamy stronę tytułową, spis treści oraz streszczenie. Strona tytułowa musi zawierać pełną nazwę uczelni, wydział, kierunek studiów, tytuł pracy, imię i nazwisko autora oraz promotora, a także rok złożenia pracy. Spis treści powinien być generowany automatycznie z wykorzystaniem stylów formatowania, co zapewnia zgodność numeracji stron.</p>
+
+═══════════════════════════════════════════════════════════════
 ⚠️⚠️⚠️ KRYTYCZNE - ZARZĄDZANIE DŁUGOŚCIĄ:
 ═══════════════════════════════════════════════════════════════
+
 1. Monitoruj swoją długość podczas pisania
 2. Jeśli zbliżasz się do ${targetLength} znaków:
    ✅ ZAKOŃCZ na sensownym miejscu (koniec akapitu lub sekcji)
@@ -1730,10 +1758,14 @@ ${
   }
 
 ═══════════════════════════════════════════════════════════════
-🎯 TWOJE ZADANIE - NAPISZ ${writerAssignment.sections}:
+🎯 STRUKTURA DO WYPEŁNIENIA TREŚCIĄ:
 ═══════════════════════════════════════════════════════════════
 
 ${writerAssignment.structure}
+
+⚠️ TO POWYŻEJ TO TYLKO PLAN! 
+⚠️ NAPISZ PEŁNĄ TREŚĆ ZGODNĄ Z TYM PLANEM!
+⚠️ NIE POWTARZAJ STRUKTURY - WYPEŁNIJ JĄ TREŚCIĄ!
 
 ${
   part && part.number > 1
@@ -1757,9 +1789,7 @@ ${hasUserSources ? "MATERIAŁY (UŻYTKOWNIK + GOOGLE):" : "ŹRÓDŁA:"}
 ${sources.substring(0, 50000)}
 
 ═══════════════════════════════════════════════════════════════
-🎯 NAPISZ ${
-    writerAssignment.sections
-  } (${targetLength} znaków, ${requiredTables} tabel):
+🎯 NAPISZ PEŁNĄ TREŚĆ dla ${writerAssignment.sections} (${targetLength} znaków):
 ═══════════════════════════════════════════════════════════════`;
 
   const message = await anthropic.messages.create({
