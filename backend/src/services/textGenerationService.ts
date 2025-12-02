@@ -151,21 +151,21 @@ ${seoLinks
 // 🔒 TWARDY LIMIT TOKENÓW - ZAPOBIEGA PRZEKROCZENIU DŁUGOŚCI
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function calculateMaxTokens(targetLength: number): number {
-  // 1 token ≈ 3 znaki OUTPUT
-  const baseTokens = Math.ceil(targetLength / 3.0);
+  // 1 token ≈ 3 znaki OUTPUT (dla polskiego może być mniej)
+  const baseTokens = Math.ceil(targetLength / 2.5); // ✅ Bezpieczniej dla polskiego
 
-  // ✅ ZWIĘKSZONY MARGINES: 100% (było 50%)
-  const withMargin = Math.ceil(baseTokens * 2.0); // ✅ 2x zamiast 1.5x
+  // ✅ DUŻY MARGINES: 3x (żeby Claude miał miejsce na pełny tekst)
+  const withMargin = Math.ceil(baseTokens * 3.0);
 
-  const MIN_TOKENS = 300;
-  const MAX_TOKENS = 16000;
+  const MIN_TOKENS = 1000;
+  const MAX_TOKENS = 64000; // ✅ ZWIĘKSZONE! Claude Sonnet 4.5 obsługuje tyle
 
   const finalTokens = Math.max(MIN_TOKENS, Math.min(MAX_TOKENS, withMargin));
 
   console.log(`📊 KALKULACJA MAX_TOKENS:`);
   console.log(`   Target: ${targetLength} znaków`);
-  console.log(`   Bazowe tokeny (÷3.0): ${baseTokens}`);
-  console.log(`   Z marginesem (×2.0): ${withMargin}`); // ✅ ZMIENIONY LOG
+  console.log(`   Bazowe tokeny (÷2.5): ${baseTokens}`);
+  console.log(`   Z marginesem (×3.0): ${withMargin}`);
   console.log(`   🔒 FINAL: ${finalTokens} tokenów\n`);
 
   return finalTokens;
@@ -1416,34 +1416,16 @@ ODPOWIEDŹ (TYLKO VALID JSON, BEZ \`\`\`json):`;
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function verifyAndFixEnding(
   content: string,
-  contentLength: number, // ✅ NOWY PARAMETR!
+  contentLength: number,
   isLastPart: boolean = false,
   textTopic: string = ""
 ): Promise<{ fixed: string; wasTruncated: boolean; reason: string }> {
-  // ✅ MECHANIZM DZIAŁA TYLKO DLA TEKSTÓW >= 40,000 ZNAKÓW!
-  if (contentLength < 40000) {
-    console.log(
-      `\n✅ Tekst < 40k (${contentLength}) - BRAK WERYFIKACJI, zwracam jak jest\n`
-    );
-    return {
-      fixed: content,
-      wasTruncated: false,
-      reason: "below_threshold",
-    };
-  }
-
-  console.log(`\n🔍 WERYFIKACJA ZAKOŃCZENIA (tekst >= 40k)...`);
-  console.log(`   Długość części: ${content.length} znaków`);
-  console.log(`   Długość całkowita: ${contentLength} znaków`);
-
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // SPRAWDŹ CZY NAPRAWDĘ URWANY (mniej restrykcyjne sprawdzenie)
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  console.log(`\n🔍 WERYFIKACJA ZAKOŃCZENIA...`);
+  console.log(`   Długość: ${content.length} znaków`);
 
   const trimmed = content.trimEnd();
-  const last50 = trimmed.substring(trimmed.length - 50);
 
-  // Tagi zamykające - SZERSZA LISTA
+  // Sprawdź czy kończy się sensownie
   const closingTags = [
     "</p>",
     "</ul>",
@@ -1458,36 +1440,16 @@ async function verifyAndFixEnding(
     "</strong>",
     "</em>",
   ];
-
   const endsWithClosingTag = closingTags.some((tag) => trimmed.endsWith(tag));
 
-  // Sprawdź czy kończy się sensownie (kropka + tag)
-  const endsWithSentenceAndTag = /[.!?]\s*<\/[^>]+>$/.test(trimmed);
-
-  // Urwany tag (otwierający bez zamykającego)?
+  // Sprawdź urwany tag (otwierający bez zamykającego)
   const lastOpenBracket = content.lastIndexOf("<");
   const lastCloseBracket = content.lastIndexOf(">");
   const hasUnclosedTag = lastOpenBracket > lastCloseBracket;
 
-  // ✅ TEKST OK jeśli:
-  // 1. Kończy się tagiem zamykającym ALBO
-  // 2. Kończy się zdaniem + tagiem ALBO
-  // 3. Brak urwanych tagów
-  const isOK =
-    (endsWithClosingTag || endsWithSentenceAndTag) && !hasUnclosedTag;
-
-  console.log(`   📊 ANALIZA:`);
-  console.log(`      Kończy się tagiem: ${endsWithClosingTag ? "✅" : "❌"}`);
-  console.log(
-    `      Kończy się zdaniem+tag: ${endsWithSentenceAndTag ? "✅" : "❌"}`
-  );
-  console.log(`      Ma urwany tag: ${hasUnclosedTag ? "❌ PROBLEM!" : "✅"}`);
-  console.log(`      Ostatnie 50 znaków: "${last50}"`);
-
-  // ✅ PRAWIDŁOWO ZAKOŃCZONY - NIE RUSZAJ!
-  if (isOK) {
-    console.log(`\n   ✅✅✅ TEKST PRAWIDŁOWO ZAKOŃCZONY - ZERO ZMIAN!`);
-    console.log(`   📏 Zachowano ${content.length} znaków\n`);
+  // ✅ TEKST OK - zwróć bez zmian
+  if (endsWithClosingTag && !hasUnclosedTag) {
+    console.log(`   ✅ Tekst prawidłowo zakończony - ZERO ZMIAN`);
     return {
       fixed: content,
       wasTruncated: false,
@@ -1495,71 +1457,61 @@ async function verifyAndFixEnding(
     };
   }
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // NAPRAWDĘ URWANY - ZNAJDŹ OSTATNI PEŁNY ELEMENT
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // ⚠️ URWANY TAG - tylko napraw tag, NIE PRZYCINAJ TREŚCI!
+  if (hasUnclosedTag) {
+    console.log(`   ⚠️ Znaleziono urwany tag - naprawiam...`);
 
-  console.log(
-    `\n   ⚠️ TEKST RZECZYWIŚCIE URWANY - szukam ostatniego pełnego elementu...`
-  );
+    // Usuń TYLKO urwany tag (nie całą treść!)
+    let fixed = content.substring(0, lastOpenBracket).trimEnd();
 
-  let cutPos = content.length;
-  let cutReason = "unknown";
+    // Jeśli teraz nie kończy się tagiem, dodaj </p>
+    if (!closingTags.some((tag) => fixed.endsWith(tag))) {
+      // Znajdź ostatnie pełne zdanie
+      const lastSentenceEnd = Math.max(
+        fixed.lastIndexOf(". "),
+        fixed.lastIndexOf("! "),
+        fixed.lastIndexOf("? ")
+      );
 
-  // 1. Ostatni </p>
-  const lastParagraph = content.lastIndexOf("</p>");
-  if (lastParagraph > content.length * 0.7) {
-    // ✅ 70% (było 50%)
-    cutPos = lastParagraph + 4;
-    cutReason = "paragraph";
-    console.log(`   🔹 Znaleziono </p> na pozycji ${cutPos}`);
-  }
-  // 2. Ostatni </li>
-  else {
-    const lastListItem = content.lastIndexOf("</li>");
-    if (lastListItem > content.length * 0.7) {
-      cutPos = lastListItem + 5;
-      cutReason = "list_item";
-      console.log(`   🔹 Znaleziono </li> na pozycji ${cutPos}`);
-    }
-    // 3. Ostatnie zdanie
-    else {
-      const lastSentence = content.lastIndexOf(". ");
-      if (lastSentence > content.length * 0.7) {
-        cutPos = lastSentence + 2;
-        cutReason = "sentence";
-        console.log(`   🔹 Znaleziono zdanie na pozycji ${cutPos}`);
+      if (lastSentenceEnd > fixed.length * 0.9) {
+        fixed = fixed.substring(0, lastSentenceEnd + 1);
       }
-      // 4. Ostatni tag
-      else {
-        const lastTag = content.lastIndexOf(">");
-        if (lastTag > 0) {
-          cutPos = lastTag + 1;
-          cutReason = "tag";
-          console.log(`   🔹 Znaleziono tag na pozycji ${cutPos}`);
-        }
-      }
+      fixed += "</p>";
     }
+
+    // Dodaj zakończenie jeśli ostatnia część
+    if (isLastPart && textTopic) {
+      fixed += `\n\n<p><strong>Podsumowanie:</strong> W artykule przedstawiono kluczowe aspekty tematu "${textTopic}".</p>`;
+    }
+
+    console.log(`   ✅ Naprawiono urwany tag`);
+    console.log(`   📏 Było: ${content.length}, Jest: ${fixed.length} znaków`);
+
+    return {
+      fixed,
+      wasTruncated: true,
+      reason: "fixed_unclosed_tag",
+    };
   }
 
-  let fixed = content.substring(0, cutPos);
+  // Tekst nie kończy się tagiem ale nie ma urwanego taga
+  // Dodaj </p> na końcu
+  console.log(`   ⚠️ Brak tagu zamykającego - dodaję </p>`);
+  let fixed = trimmed;
 
-  // Dodaj zakończenie jeśli ostatnia część
+  if (!fixed.endsWith(".") && !fixed.endsWith("!") && !fixed.endsWith("?")) {
+    fixed += ".";
+  }
+  fixed += "</p>";
+
   if (isLastPart && textTopic) {
-    fixed += `\n\n<p><strong>Podsumowanie:</strong> Przedstawiono kluczowe aspekty tematu "${textTopic}".</p>`;
-    console.log(`   ✅ Dodano zakończenie`);
+    fixed += `\n\n<p><strong>Podsumowanie:</strong> W artykule przedstawiono kluczowe aspekty tematu "${textTopic}".</p>`;
   }
-
-  console.log(`\n   ✂️ PRZYCIĘTO URWANĄ CZĘŚĆ:`);
-  console.log(`      Było: ${content.length} znaków`);
-  console.log(`      Jest: ${fixed.length} znaków`);
-  console.log(`      Usunięto: ${content.length - fixed.length} znaków`);
-  console.log(`      Metoda: ${cutReason}\n`);
 
   return {
     fixed,
-    wasTruncated: true,
-    reason: cutReason,
+    wasTruncated: false,
+    reason: "added_closing_tag",
   };
 }
 
