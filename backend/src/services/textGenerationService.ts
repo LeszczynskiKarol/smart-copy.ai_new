@@ -980,24 +980,31 @@ async function generateShortContent(
   const hasUserSources = sources.includes("ŹRÓDŁA PRIORYTETOWE");
   const maxTokens = calculateMaxTokens(text.length);
 
-  const minLength = Math.floor(text.length * 0.9);
-  const targetLength = Math.ceil(text.length * 1.0);
-  const maxLength = Math.ceil(text.length * 1.05);
-
-  const requiredLists = Math.max(1, Math.floor(text.length / 50000));
-  const requiredTables = Math.max(1, Math.floor(text.length / 15000));
+  const targetLength = text.length;
+  const structure = calculateContentStructure(targetLength);
   const seoInstructions = generateSeoInstructions(text);
+  const requiredLists = Math.max(1, Math.floor(text.length / 5000));
+  const requiredTables = Math.max(1, Math.floor(text.length / 8000));
 
   const prompt = `╔═══════════════════════════════════════════════════════════════╗
 ║  🔴🔴🔴 CEL: ${targetLength} ZNAKÓW - NIE MNIEJ! 🔴🔴🔴       ║
 ╚═══════════════════════════════════════════════════════════════╝
 ${seoInstructions}
 
-🎯 TWÓJ OBOWIĄZKOWY CEL: ${targetLength} znaków
-   ABSOLUTNE MINIMUM: ${minLength} znaków
-   MAKSIMUM: ${maxLength} znaków
-⚠️⚠️⚠️ KRYTYCZNE: Jeśli masz mniej niż ${targetLength} znaków - KONTYNUUJ PISANIE!
-⚠️⚠️⚠️ LEPIEJ PRZEKROCZYĆ ${targetLength} niż napisać ${minLength}!
+📐 DOKŁADNA STRUKTURA TEKSTU:
+🎯 CEL: ~${structure.words} SŁÓW (${structure.paragraphs} akapitów)
+
+📊 WYMAGANA STRUKTURA:
+   • Sekcji <h2>: ${structure.sections}
+   • Akapitów <p> łącznie: ${structure.paragraphs}
+   • Słów na akapit: ~100 (4-5 zdań)
+
+📏 PRZYKŁAD AKAPITU (~100 słów):
+${structure.example}
+
+⚠️ KAŻDY akapit = PODOBNA długość do przykładu!
+⚠️ DOKŁADNIE ${structure.sections} sekcji <h2>!
+⚠️ NIE WIĘCEJ, NIE MNIEJ!
 ═══════════════════════════════════════════════════════════════
 📋 WYMAGANE ELEMENTY HTML:
 ═══════════════════════════════════════════════════════════════
@@ -1068,7 +1075,7 @@ PARAMETRY:
 ═══════════════════════════════════════════════════════════════
 - TEMAT: ${text.topic}
 - RODZAJ: ${text.textType}
-- 🎯 CEL: ${targetLength} znaków (${minLength}-${maxLength})
+- 🎯 CEL: ~${structure.words} słów (~${targetLength} znaków)
 - JĘZYK: ${text.language}
 - WYTYCZNE: ${text.guidelines || "brak"}
 - WYMAGANE LISTY: ${requiredLists}
@@ -1109,9 +1116,7 @@ ${
    ✅ ZAKOŃCZ na sensownym miejscu (koniec akapitu lub sekcji)
    ✅ Dodaj krótkie podsumowanie (300-400 znaków)
    ✅ NIE ZOSTAWIAJ urwanego zdania!
-3. LEPIEJ SKOŃCZYĆ przy ${Math.floor(
-    targetLength * 0.95
-  )} niż być urwanym przy ${maxLength}!
+3. LEPIEJ SKOŃCZYĆ przy ${Math.floor(targetLength * 0.95)} niż pisać za dużo!
 ═══════════════════════════════════════════════════════════════
 🎯 NAPISZ TEKST (${targetLength} ZNAKÓW, ${requiredLists} list, ${requiredTables} tabel):
 ═══════════════════════════════════════════════════════════════`;
@@ -1537,10 +1542,8 @@ async function generateWithStructure(
 
   const partLength = writerAssignment.targetLength;
   const maxTokens = calculateMaxTokens(partLength);
-
-  const minLength = Math.floor(partLength * 0.9);
-  const targetLength = Math.ceil(partLength * 1.0);
-  const maxLength = Math.ceil(partLength * 1.05);
+  const targetLength = partLength;
+  const structure = calculateContentStructure(targetLength);
 
   const requiredLists = Math.max(0, Math.floor(partLength / 50000));
   const requiredTables = Math.max(1, Math.floor(partLength / 15000));
@@ -1588,11 +1591,18 @@ ${part.previousContent.substring(
 ${contextInfo}
 ${seoInstructions}
 
-🎯 CEL TEJ CZĘŚCI: ${targetLength} znaków
-   MINIMUM: ${minLength} znaków
-   MAKSIMUM: ${maxLength} znaków
+📐 STRUKTURA TEJ CZĘŚCI:
+🎯 CEL: ~${structure.words} SŁÓW (${structure.paragraphs} akapitów)
 
-⚠️⚠️⚠️ Lepiej ${targetLength} niż ${minLength}!
+📊 WYMAGANE:
+   • Sekcji <h2>: ${structure.sections}
+   • Akapitów: ${structure.paragraphs}
+   • Słów/akapit: ~100
+
+📏 PRZYKŁAD AKAPITU:
+${structure.example}
+
+⚠️ TRZYMAJ SIĘ TEJ STRUKTURY!
 
 ═══════════════════════════════════════════════════════════════
 ⚠️⚠️⚠️ KRYTYCZNE - CO MASZ NAPISAĆ ⚠️⚠️⚠️
@@ -1700,9 +1710,7 @@ ${
    ✅ ZAKOŃCZ na sensownym miejscu (koniec akapitu lub sekcji)
    ✅ Dodaj krótkie podsumowanie jeśli to ostatnia część
    ✅ NIE ZOSTAWIAJ urwanego zdania!
-3. LEPIEJ SKOŃCZYĆ przy ${Math.floor(
-    targetLength * 0.95
-  )} niż być urwanym przy ${maxLength}!
+3. LEPIEJ SKOŃCZYĆ przy ${Math.floor(targetLength * 0.95)} niż pisać za dużo!
 4. ${
     part?.number === part?.total
       ? "To OSTATNIA CZĘŚĆ - MUSISZ dodać ZAKOŃCZENIE!"
@@ -1781,9 +1789,10 @@ ${sources.substring(0, 50000)}
   }
 
   // Sprawdź czy nie za krótki
-  if (actualLength < minLength) {
+  const minExpected = Math.floor(targetLength * 0.8);
+  if (actualLength < minExpected) {
     console.warn(
-      `   ⚠️ UWAGA: Tekst krótszy niż minimum (${actualLength} < ${minLength})`
+      `   ⚠️ UWAGA: Tekst krótszy niż oczekiwano (${actualLength} < ${minExpected})`
     );
   }
 
@@ -1996,6 +2005,42 @@ async function savePromptAndResponse(
   } finally {
     await prisma.$disconnect();
   }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 📐 KALKULUJ STRUKTURĘ ZAMIAST ZNAKÓW
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function calculateContentStructure(targetChars: number): {
+  words: number;
+  paragraphs: number;
+  sections: number;
+  wordsPerParagraph: number;
+  paragraphsPerSection: number;
+  example: string;
+} {
+  // Polski: ~6.5 znaków na słowo (ze spacjami)
+  const words = Math.round(targetChars / 6.5);
+
+  // ~100 słów na akapit (4-5 zdań)
+  const paragraphs = Math.round(words / 100);
+
+  // ~3 akapity na sekcję H2
+  const sections = Math.max(2, Math.round(paragraphs / 3));
+
+  const wordsPerParagraph = Math.round(words / paragraphs);
+  const paragraphsPerSection = Math.round(paragraphs / sections);
+
+  // Przykład akapitu ~100 słów (650 znaków)
+  const example = `<p>To jest przykładowy akapit o długości około stu słów, który pokazuje jak powinien wyglądać typowy akapit w Twoim tekście. Każdy akapit powinien zawierać od czterech do pięciu pełnych zdań, które rozwijają jedną myśl lub koncept. Pamiętaj, że akapit nie powinien być ani za krótki (jedno zdanie), ani za długi (więcej niż siedem zdań). Staraj się zachować podobną długość wszystkich akapitów w tekście, co zapewni czytelnikowi komfort czytania i ułatwi przyswajanie informacji. Ten przykładowy akapit ma właśnie około stu słów.</p>`;
+
+  return {
+    words,
+    paragraphs,
+    sections,
+    wordsPerParagraph,
+    paragraphsPerSection,
+    example,
+  };
 }
 
 async function selectBestSourcesFromScraped(
