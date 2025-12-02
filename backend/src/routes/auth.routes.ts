@@ -147,6 +147,31 @@ export const authRoutes = async (fastify: FastifyInstance) => {
     }
   );
 
+  // POST /api/auth/refresh
+  fastify.post<{ Body: { refreshToken: string } }>(
+    "/refresh",
+    async (request, reply) => {
+      try {
+        const { refreshToken } = request.body;
+
+        if (!refreshToken) {
+          return reply.code(400).send({ error: "Refresh token wymagany" });
+        }
+
+        const result = await authService.refreshTokens(refreshToken);
+        return reply.code(200).send(result);
+      } catch (error) {
+        if (error instanceof AppError) {
+          return reply.code(error.statusCode).send({
+            error: error.message,
+          });
+        }
+        console.error("Refresh token error:", error);
+        return reply.code(401).send({ error: "Nie udało się odświeżyć sesji" });
+      }
+    }
+  );
+
   // Get current user
   fastify.get(
     "/me",

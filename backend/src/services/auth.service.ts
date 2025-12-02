@@ -12,7 +12,11 @@ import {
   AppError,
   errorMessages,
 } from "../utils/helpers";
-import { generateAccessToken, generateRefreshToken } from "../utils/jwt";
+import {
+  generateAccessToken,
+  generateRefreshToken,
+  verifyRefreshToken,
+} from "../utils/jwt";
 import { sendVerificationEmail, sendPasswordResetEmail } from "./email.service";
 import { verifyRecaptcha } from "../utils/recaptcha";
 import {
@@ -466,6 +470,7 @@ export class AuthService {
       message: "Hasło zostało pomyślnie zmienione",
     };
   }
+
   async googleLogin(googleToken: string) {
     const googleUser = await verifyGoogleToken(googleToken);
 
@@ -524,5 +529,37 @@ export class AuthService {
         role: user.role,
       },
     };
+  }
+
+  async refreshTokens(refreshToken: string) {
+    try {
+      const decoded = verifyRefreshToken(refreshToken);
+
+      // Sprawdź czy użytkownik nadal istnieje
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.userId },
+      });
+
+      if (!user) {
+        throw new AppError(401, "Użytkownik nie istnieje");
+      }
+
+      // Wygeneruj nowe tokeny
+      const newAccessToken = generateAccessToken({
+        userId: user.id,
+        email: user.email,
+      });
+      const newRefreshToken = generateRefreshToken({
+        userId: user.id,
+        email: user.email,
+      });
+
+      return {
+        accessToken: newAccessToken,
+        refreshToken: newRefreshToken,
+      };
+    } catch (error) {
+      throw new AppError(401, "Nieprawidłowy refresh token");
+    }
   }
 }
