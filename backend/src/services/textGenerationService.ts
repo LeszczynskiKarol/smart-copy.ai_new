@@ -152,22 +152,24 @@ ${seoLinks
 // 🔒 TWARDY LIMIT TOKENÓW - ZAPOBIEGA PRZEKROCZENIU DŁUGOŚCI
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function calculateMaxTokens(targetLength: number): number {
-  // 1 token ≈ 3 znaki OUTPUT (dla polskiego może być mniej)
-  const baseTokens = Math.ceil(targetLength / 2.5); // ✅ Bezpieczniej dla polskiego
+  // 🔴 KLUCZOWA ZMIANA: 1 token ≈ 4 znaki dla polskiego HTML
+  const baseTokens = Math.ceil(targetLength / 4);
 
-  // ✅ DUŻY MARGINES: 3x (żeby Claude miał miejsce na pełny tekst)
-  const withMargin = Math.ceil(baseTokens * 3.0);
+  // 🔴 MAŁY margines: tylko 1.3x (nie 3x!)
+  const withMargin = Math.ceil(baseTokens * 1.3);
 
   const MIN_TOKENS = 1000;
-  const MAX_TOKENS = 64000; // ✅ ZWIĘKSZONE! Claude Sonnet 4.5 obsługuje tyle
+  const MAX_TOKENS = 16000; // 🔴 ZMNIEJSZONE!
 
   const finalTokens = Math.max(MIN_TOKENS, Math.min(MAX_TOKENS, withMargin));
 
   console.log(`📊 KALKULACJA MAX_TOKENS:`);
   console.log(`   Target: ${targetLength} znaków`);
-  console.log(`   Bazowe tokeny (÷2.5): ${baseTokens}`);
-  console.log(`   Z marginesem (×3.0): ${withMargin}`);
-  console.log(`   🔒 FINAL: ${finalTokens} tokenów\n`);
+  console.log(`   Bazowe tokeny (÷4): ${baseTokens}`);
+  console.log(`   Z marginesem (×1.3): ${withMargin}`);
+  console.log(
+    `   🔒 FINAL: ${finalTokens} tokenów (max ~${finalTokens * 4} znaków)\n`
+  );
 
   return finalTokens;
 }
