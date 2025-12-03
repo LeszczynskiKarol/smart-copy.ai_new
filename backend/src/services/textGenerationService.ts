@@ -155,8 +155,7 @@ function calculateMaxTokens(targetLength: number): number {
   // 🔴 KLUCZOWA ZMIANA: 1 token ≈ 4 znaki dla polskiego HTML
   const baseTokens = Math.ceil(targetLength / 4);
 
-  // 🔴 MAŁY margines: tylko 1.5x
-  const withMargin = Math.ceil(baseTokens * 1.5);
+  const withMargin = Math.ceil(baseTokens * 1.7);
 
   const MIN_TOKENS = 1000;
   const MAX_TOKENS = 16000; // 🔴 ZMNIEJSZONE!
@@ -1803,9 +1802,9 @@ ${seoInstructions}
 🎯 CEL: ~${structure.words} SŁÓW (${structure.paragraphs} akapitów)
 
 📊 WYMAGANE:
-   • Sekcji <h2>: ${structure.sections}
-   • Akapitów: ${structure.paragraphs}
+   • Akapitów łącznie: ${structure.paragraphs}
    • Słów/akapit: ~100
+   • ⚠️ LICZBĘ SEKCJI H2 OKREŚLA STRUKTURA KIEROWNIKA PONIŻEJ!
 
 📏 PRZYKŁAD AKAPITU:
 ${structure.example}
@@ -1859,7 +1858,7 @@ KRYTYCZNE ZASADY FORMATOWANIA HTML:
 
 1. Pisz TYLKO czysty HTML - bez <!DOCTYPE>, <html>, <head>, <body>
 2. ${
-    part?.number === 1
+    !part || part?.number === 1
       ? "Rozpocznij od: <h1>Pełny tytuł tekstu zgodny z tematem</h1>"
       : "Kontynuuj od poprzedniej części - NIE dodawaj <h1>"
   }
