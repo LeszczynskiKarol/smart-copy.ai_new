@@ -2,6 +2,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import axios from "axios";
 import { Text } from "@prisma/client";
+import { generateExampleSection } from "./textExamples";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
@@ -986,12 +987,18 @@ async function generateShortContent(
   const requiredLists = Math.max(1, Math.floor(text.length / 5000));
   const requiredTables = Math.max(1, Math.floor(text.length / 8000));
 
+  // 📏 POBIERZ WZÓR TEKSTU
+  const exampleSection = generateExampleSection(targetLength);
+
   const prompt = `╔═══════════════════════════════════════════════════════════════╗
 ║  🔴🔴🔴 CEL: ${targetLength} ZNAKÓW - NIE MNIEJ! 🔴🔴🔴       ║
 ╚═══════════════════════════════════════════════════════════════╝
+
+${exampleSection}
+
 ${seoInstructions}
 
-📐 DOKŁADNA STRUKTURA TEKSTU:
+📐 DODATKOWE WSKAZÓWKI STRUKTURY:
 🎯 CEL: ~${structure.words} SŁÓW (${structure.paragraphs} akapitów)
 
 📊 WYMAGANA STRUKTURA:
@@ -1584,14 +1591,19 @@ ${part.previousContent.substring(
   const seoInstructions =
     part?.number === 1 ? generateSeoInstructions(text) : "";
 
+  // 📏 POBIERZ WZÓR TEKSTU
+  const exampleSection = generateExampleSection(targetLength);
+
   const prompt = `╔═══════════════════════════════════════════════════════════════╗
 ║  🎯 CEL: ${writerAssignment.sections} - ${targetLength} ZNAKÓW! 🎯  ║
 ╚═══════════════════════════════════════════════════════════════╝
 
+${exampleSection}
+
 ${contextInfo}
 ${seoInstructions}
 
-📐 STRUKTURA TEJ CZĘŚCI:
+📐 DODATKOWE WSKAZÓWKI STRUKTURY:
 🎯 CEL: ~${structure.words} SŁÓW (${structure.paragraphs} akapitów)
 
 📊 WYMAGANE:
