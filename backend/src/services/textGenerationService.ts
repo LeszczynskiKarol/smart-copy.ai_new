@@ -1717,8 +1717,8 @@ async function generateWithStructure(
   const targetLength = partLength;
   const structure = calculateContentStructure(targetLength);
 
-  const requiredLists = Math.max(0, Math.floor(partLength / 50000));
-  const requiredTables = Math.max(1, Math.floor(partLength / 15000));
+  const requiredLists = Math.max(1, Math.floor(partLength / 5000));
+  const requiredTables = Math.max(1, Math.floor(partLength / 8000));
 
   const contextInfo = part
     ? `
@@ -1811,11 +1811,19 @@ ${
     : ""
 }
 
+✅ OBOWIĄZKOWE LISTY: ${requiredLists}
+   - Każda lista: <ul> lub <ol> z 5-7 elementami
+   - Każdy <li>: 50-100 znaków PEŁNEJ TREŚCI
+   - Lista dodaje ~400-600 znaków
+   - ⚠️ UMIEŚĆ LISTY W ŚRODKU TEKSTU (nie na końcu!)
+
 ✅ OBOWIĄZKOWE TABELE: ${requiredTables}
    - Każda tabela: 4+ kolumny × 6-8 wierszy
    - Użyj <table>, <thead>, <tbody>, <tr>, <th>, <td>
    - Tabela z PRAWDZIWYMI DANYMI, nie przykładami!
    - Tabela dodaje ~1000-1500 znaków!
+   - ⚠️ UMIEŚĆ TABELE W ŚRODKU TEKSTU (nie na końcu!)
+   - ⚠️ Po tabeli MUSI być jeszcze akapit <p> z tekstem!
 
 ═══════════════════════════════════════════════════════════════
 KRYTYCZNE ZASADY FORMATOWANIA HTML:
