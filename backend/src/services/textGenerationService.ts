@@ -991,7 +991,27 @@ async function generateShortContent(
   // 📏 POBIERZ WZÓR TEKSTU
   const exampleSection = generateExampleSection(targetLength);
 
-  const prompt = `╔═══════════════════════════════════════════════════════════════╗
+  const prompt = `🔴🔴🔴 ABSOLUTNIE KRYTYCZNE - FORMAT ODPOWIEDZI 🔴🔴🔴
+
+❌❌❌ ZAKAZ UŻYWANIA MARKDOWN! ❌❌❌
+NIE PISZ: # ## ### * - 
+NIE PISZ nagłówków z hashtagami!
+
+✅✅✅ PISZ TYLKO CZYSTY HTML! ✅✅✅
+PISZ: <h1> <h2> <h3> <p> <ul> <li> <table>
+
+PRZYKŁAD PRAWIDŁOWY:
+<h1>Tytuł</h1>
+<p>Akapit tekstu...</p>
+<h2>Sekcja</h2>
+
+PRZYKŁAD BŁĘDNY (ZAKAZANY!):
+# Tytuł
+Akapit tekstu...
+## Sekcja
+
+TWOJA ODPOWIEDŹ MUSI ZACZYNAĆ SIĘ OD: <h1>
+╔═══════════════════════════════════════════════════════════════╗
 ║  🔴🔴🔴 CEL: ${targetLength} ZNAKÓW - NIE MNIEJ! 🔴🔴🔴       ║
 ╚═══════════════════════════════════════════════════════════════╝
 
@@ -1798,7 +1818,27 @@ ${part.previousContent.substring(
   // 📏 POBIERZ WZÓR TEKSTU
   const exampleSection = generateExampleSection(targetLength);
 
-  const prompt = `╔═══════════════════════════════════════════════════════════════╗
+  const prompt = `🔴🔴🔴 ABSOLUTNIE KRYTYCZNE - FORMAT ODPOWIEDZI 🔴🔴🔴
+
+❌❌❌ ZAKAZ UŻYWANIA MARKDOWN! ❌❌❌
+NIE PISZ: # ## ### * - 
+NIE PISZ nagłówków z hashtagami!
+
+✅✅✅ PISZ TYLKO CZYSTY HTML! ✅✅✅
+PISZ: <h1> <h2> <h3> <p> <ul> <li> <table>
+
+PRZYKŁAD PRAWIDŁOWY:
+<h1>Tytuł</h1>
+<p>Akapit tekstu...</p>
+<h2>Sekcja</h2>
+
+PRZYKŁAD BŁĘDNY (ZAKAZANY!):
+# Tytuł
+Akapit tekstu...
+## Sekcja
+
+TWOJA ODPOWIEDŹ MUSI ZACZYNAĆ SIĘ OD: <h1>
+╔═══════════════════════════════════════════════════════════════╗
 ║  🎯 CEL: ${writerAssignment.sections} - ${targetLength} ZNAKÓW! 🎯  ║
 ╚═══════════════════════════════════════════════════════════════╝
 
