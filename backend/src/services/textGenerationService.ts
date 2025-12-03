@@ -155,8 +155,8 @@ function calculateMaxTokens(targetLength: number): number {
   // 🔴 KLUCZOWA ZMIANA: 1 token ≈ 4 znaki dla polskiego HTML
   const baseTokens = Math.ceil(targetLength / 4);
 
-  // 🔴 MAŁY margines: tylko 1.3x (nie 3x!)
-  const withMargin = Math.ceil(baseTokens * 1.3);
+  // 🔴 MAŁY margines: tylko 1.5x
+  const withMargin = Math.ceil(baseTokens * 1.5);
 
   const MIN_TOKENS = 1000;
   const MAX_TOKENS = 16000; // 🔴 ZMNIEJSZONE!
@@ -1125,7 +1125,7 @@ ${
    ✅ ZAKOŃCZ na sensownym miejscu (koniec akapitu lub sekcji)
    ✅ Dodaj krótkie podsumowanie (300-400 znaków)
    ✅ NIE ZOSTAWIAJ urwanego zdania!
-3. LEPIEJ SKOŃCZYĆ przy ${Math.floor(targetLength * 0.95)} niż pisać za dużo!
+3. Pisz do końca struktury - masz wystarczająco tokenów!
 ═══════════════════════════════════════════════════════════════
 🎯 NAPISZ TEKST (${targetLength} ZNAKÓW, ${requiredLists} list, ${requiredTables} tabel):
 ═══════════════════════════════════════════════════════════════`;
@@ -1799,31 +1799,28 @@ Każdy akapit powinien mieć 300-500 znaków.
 NIE powtarzaj struktury - NAPISZ PRAWDZIWY TEKST!
 
 ═══════════════════════════════════════════════════════════════
-📋 WYMAGANE ELEMENTY DLA TEJ CZĘŚCI:
+═══════════════════════════════════════════════════════════════
+📋 WYMAGANE ELEMENTY DLA TEJ CZĘŚCI - KRYTYCZNE!
 ═══════════════════════════════════════════════════════════════
 
-${
-  requiredLists > 0
-    ? `✅ OBOWIĄZKOWE LISTY: ${requiredLists}
-   - Każda lista: <ul> lub <ol> z 5-7 elementami
-   - Każdy <li>: 50-100 znaków PEŁNEJ TREŚCI (nie punktów planu!)
-`
-    : ""
-}
+🔴🔴🔴 MUSISZ DODAĆ DOKŁADNIE:
 
-✅ OBOWIĄZKOWE LISTY: ${requiredLists}
-   - Każda lista: <ul> lub <ol> z 5-7 elementami
-   - Każdy <li>: 50-100 znaków PEŁNEJ TREŚCI
-   - Lista dodaje ~400-600 znaków
-   - ⚠️ UMIEŚĆ LISTY W ŚRODKU TEKSTU (nie na końcu!)
+✅ LISTY: ${requiredLists} (OBOWIĄZKOWE!)
+   - Użyj <ul> lub <ol> z 5-7 elementami <li>
+   - Każdy <li>: 50-100 znaków treści
+   - ⚠️ UMIEŚĆ W ŚRODKU TEKSTU (po 2-3 sekcji)
+   - NIE POMIJAJ - LISTA JEST WYMAGANA!
 
-✅ OBOWIĄZKOWE TABELE: ${requiredTables}
-   - Każda tabela: 4+ kolumny × 6-8 wierszy
-   - Użyj <table>, <thead>, <tbody>, <tr>, <th>, <td>
-   - Tabela z PRAWDZIWYMI DANYMI, nie przykładami!
-   - Tabela dodaje ~1000-1500 znaków!
-   - ⚠️ UMIEŚĆ TABELE W ŚRODKU TEKSTU (nie na końcu!)
-   - ⚠️ Po tabeli MUSI być jeszcze akapit <p> z tekstem!
+✅ TABELE: ${requiredTables} (OBOWIĄZKOWE!)
+   - 4+ kolumny × 6-8 wierszy
+   - <table><thead><tbody><tr><th><td>
+   - ⚠️ UMIEŚĆ W ŚRODKU TEKSTU
+   - Po tabeli MUSI być jeszcze akapit <p>!
+
+⚠️ SPRAWDŹ PRZED ZAKOŃCZENIEM:
+   □ Czy mam ${requiredLists} list <ul>/<ol>?
+   □ Czy mam ${requiredTables} tabel <table>?
+   □ Czy są w ŚRODKU tekstu, nie na końcu?
 
 ═══════════════════════════════════════════════════════════════
 KRYTYCZNE ZASADY FORMATOWANIA HTML:
