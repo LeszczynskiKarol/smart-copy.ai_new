@@ -1205,8 +1205,11 @@ async function generateStructure(
   let prompt: string;
 
   if (writersCount === 1) {
-    // JEDEN PISARZ - stary prompt (bez podziału)
-    prompt = `Jesteś kierownikiem projektu content. Określ strukturę i spis treści dla tekstu W FORMACIE HTML.
+    // ✅ NOWY PROMPT Z OGRANICZENIEM STRUKTURY
+    const maxSections = Math.max(2, Math.ceil(text.length / 3000));
+    const maxSubsections = Math.max(3, Math.ceil(text.length / 1500));
+
+    prompt = `Jesteś kierownikiem projektu content. Określ ZWIĘZŁĄ strukturę HTML.
 
 TEMAT: ${text.topic}
 RODZAJ: ${text.textType}
@@ -1214,36 +1217,33 @@ DŁUGOŚĆ: ${text.length} znaków
 JĘZYK: ${text.language}
 WYTYCZNE: ${text.guidelines || "brak"}
 
+╔═══════════════════════════════════════════════════════════════╗
+║  ⚠️⚠️⚠️ KRYTYCZNE OGRANICZENIE STRUKTURY ⚠️⚠️⚠️              ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Dla tekstu ${text.length} znaków:
+   • MAKSYMALNIE ${maxSections} sekcji <h2> (nie więcej!)
+   • MAKSYMALNIE ${maxSubsections} podsekcji <h3> łącznie
+   • Każda sekcja <h2> = ~${Math.floor(text.length / maxSections)} znaków TREŚCI
+
+❌ NIE PLANUJ WIĘCEJ SEKCJI! Pisarz potrzebuje miejsca na pełną treść!
+
 FORMAT WYJŚCIOWY: Czysty HTML (bez <!DOCTYPE>, <html>, <body>)
 
-ZADANIE:
-Przygotuj szczegółową strukturę HTML. Określ:
-1. TYTUŁ GŁÓWNY (w <h1>)
-${
-  includeIntro
-    ? "2. WSTĘP (1 akapit, ok. 300-500 znaków) - w <p>"
-    : "2. BEZ WSTĘPU - przejdź bezpośrednio do treści"
-}
-${includeIntro ? "3." : "2."} SEKCJE GŁÓWNE (w <h2>) z podsekcjami (w <h3>)
-   - Określ ile znaków każda sekcja
-   - Jakie punkty kluczowe
-${includeIntro ? "4." : "3."} ZAKOŃCZENIE (w <p>)
-${includeIntro ? "5." : "4."} Ton komunikacji
-${includeIntro ? "6." : "5."} Elementy HTML: <strong>, <em>, <ul>, <ol>
+STRUKTURA (TYLKO ${maxSections} sekcji <h2>!):
+<h1>Tytuł</h1>
+${includeIntro ? "<p>Wstęp (400-600 znaków)</p>" : ""}
+<h2>Sekcja 1 (~${Math.floor((text.length - 1000) / maxSections)} znaków)</h2>
+<p>Opis co zawiera sekcja...</p>
+<h3>Podsekcja 1.1</h3>
+<p>...</p>
+[TYLKO ${maxSections - 1} więcej sekcji <h2>!]
+<p>Zakończenie (300-400 znaków)</p>
 
-STRUKTURA:
-<h1>Tytuł Główny</h1>
-${includeIntro ? "<p>Wstęp wprowadzający... (300-500 znaków)</p>" : ""}
-<h2>Sekcja 1 (X znaków)</h2>
-<p>Treść sekcji 1...</p>
-<h3>Podsekcja 1.1 (Y znaków)</h3>
-<p>Treść podsekcji...</p>
-[...więcej sekcji...]
-<p>Zakończenie podsumowujące...</p>
+⚠️ SUMA ZNAKÓW MUSI = ${text.length} (±10%)
+⚠️ NIE WIĘCEJ NIŻ ${maxSections} SEKCJI <h2>!
 
-Struktura musi sumować się do ${text.length} znaków (±10%).
-
-ODPOWIEDŹ - szczegółowa struktura HTML:`;
+ODPOWIEDŹ - ZWIĘZŁA struktura HTML:`;
   } else {
     // ✅ WIELU PISARZY - PEŁNY PRZYKŁAD JSON DLA KAŻDEJ LICZBY
     const lengthPerWriter = Math.floor(text.length / writersCount);
