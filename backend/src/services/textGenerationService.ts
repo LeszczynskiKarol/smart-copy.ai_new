@@ -165,7 +165,7 @@ function calculateMaxTokens(targetLength: number): number {
   console.log(`📊 KALKULACJA MAX_TOKENS:`);
   console.log(`   Target: ${targetLength} znaków`);
   console.log(`   Bazowe tokeny (÷4): ${baseTokens}`);
-  console.log(`   Z marginesem (×1.3): ${withMargin}`);
+  console.log(`   Z marginesem (×1.7): ${withMargin}`);
   console.log(
     `   🔒 FINAL: ${finalTokens} tokenów (max ~${finalTokens * 4} znaków)\n`
   );
@@ -1241,7 +1241,16 @@ ${includeIntro ? "<p>Wstęp (400-600 znaków)</p>" : ""}
 
 ⚠️ SUMA ZNAKÓW MUSI = ${text.length} (±10%)
 ⚠️ NIE WIĘCEJ NIŻ ${maxSections} SEKCJI <h2>!
-
+⚠️ WYMAGANE ELEMENTY W STRUKTURZE:
+   • Zaplanuj miejsca na ${Math.max(
+     1,
+     Math.floor(text.length / 5000)
+   )} list <ul> (wstaw placeholder: <!-- LISTA -->)
+   • Zaplanuj miejsce na ${Math.max(
+     1,
+     Math.floor(text.length / 8000)
+   )} tabelę <table> (wstaw placeholder: <!-- TABELA -->)
+   • Umieść je W ŚRODKU struktury, nie na końcu!
 ODPOWIEDŹ - ZWIĘZŁA struktura HTML:`;
   } else {
     // ✅ WIELU PISARZY - PEŁNY PRZYKŁAD JSON DLA KAŻDEJ LICZBY
