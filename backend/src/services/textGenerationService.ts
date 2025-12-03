@@ -1720,6 +1720,37 @@ async function generateWithStructure(
   const requiredLists = Math.max(1, Math.floor(partLength / 5000));
   const requiredTables = Math.max(1, Math.floor(partLength / 8000));
 
+  // ✅ WYCIĄGNIJ LISTĘ H2 ZE STRUKTURY KIEROWNIKA
+  const h2Regex = /<h2[^>]*>([^<]*)<\/h2>/gi;
+  const h2Matches = writerAssignment.structure.match(h2Regex) || [];
+  const h2List = h2Matches.map((h: string) => h.replace(/<[^>]*>/g, "").trim());
+  const h2Count = h2List.length;
+
+  // ✅ FORMATUJ LISTĘ H2 PRZED UŻYCIEM W TEMPLATE STRING
+  const h2ListFormatted = h2List
+    .map((h: string, i: number) => `   ${i + 1}. "${h}"`)
+    .join("\n");
+
+  const structureEnforcementSection = `
+═══════════════════════════════════════════════════════════════
+🔴🔴🔴 KRYTYCZNE - TRZYMAJ SIĘ STRUKTURY KIEROWNIKA! 🔴🔴🔴
+═══════════════════════════════════════════════════════════════
+
+STRUKTURA MA DOKŁADNIE ${h2Count} SEKCJI H2.
+MUSISZ NAPISAĆ DOKŁADNIE ${h2Count} SEKCJI H2 - NIE WIĘCEJ, NIE MNIEJ!
+
+DOZWOLONE SEKCJE H2:
+${h2ListFormatted}
+
+❌ ZAKAZ: Dodawania NOWYCH sekcji H2 których nie ma na liście!
+❌ ZAKAZ: Zmieniania tytułów sekcji!
+❌ ZAKAZ: Pomijania sekcji!
+✅ DOZWOLONE: Rozbudowanie treści W RAMACH istniejących sekcji
+✅ DOZWOLONE: Dodanie więcej akapitów <p> w sekcjach
+
+⚠️ JEŚLI CHCESZ DODAĆ WIĘCEJ TREŚCI - ROZWIŃ ISTNIEJĄCE SEKCJE!
+`;
+
   const contextInfo = part
     ? `
 ═══════════════════════════════════════════════════════════════
@@ -1898,6 +1929,8 @@ ${
       ? "To OSTATNIA CZĘŚĆ - MUSISZ dodać ZAKOŃCZENIE!"
       : ""
   }
+
+${structureEnforcementSection}
 
 ═══════════════════════════════════════════════════════════════
 🎯 STRUKTURA DO WYPEŁNIENIA TREŚCIĄ:
