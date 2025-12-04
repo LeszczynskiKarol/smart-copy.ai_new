@@ -155,7 +155,7 @@ function calculateMaxTokens(targetLength: number): number {
   // 🔴 KLUCZOWA ZMIANA: 1 token ≈ 4 znaki dla polskiego HTML
   const baseTokens = Math.ceil(targetLength / 4);
 
-  const withMargin = Math.ceil(baseTokens * 1.7);
+  const withMargin = Math.ceil(baseTokens * 1.85);
 
   const MIN_TOKENS = 1000;
   const MAX_TOKENS = 16000; // 🔴 ZMNIEJSZONE!
@@ -1155,6 +1155,15 @@ ${
     temperature: 0.7,
     messages: [{ role: "user", content: prompt }],
   });
+  // 🔍 DEBUG API RESPONSE
+  console.log(`\n🔍🔍🔍 DEBUG API RESPONSE 🔍🔍🔍`);
+  console.log(`   stop_reason: ${message.stop_reason}`);
+  console.log(`   input_tokens: ${message.usage?.input_tokens}`);
+  console.log(`   output_tokens: ${message.usage?.output_tokens}`);
+  console.log(`   max_tokens wysłane: ${maxTokens}`);
+  if (message.stop_reason === "max_tokens") {
+    console.log(`   ⚠️ UWAGA: Tekst UCIĘTY przez limit tokenów!`);
+  }
 
   const response =
     message.content[0].type === "text" ? message.content[0].text : "";
@@ -2021,6 +2030,16 @@ ${sources.substring(0, 50000)}
     temperature: 0.7,
     messages: [{ role: "user", content: prompt }],
   });
+
+  // 🔍 DEBUG API RESPONSE
+  console.log(`\n🔍🔍🔍 DEBUG API RESPONSE 🔍🔍🔍`);
+  console.log(`   stop_reason: ${message.stop_reason}`);
+  console.log(`   input_tokens: ${message.usage?.input_tokens}`);
+  console.log(`   output_tokens: ${message.usage?.output_tokens}`);
+  console.log(`   max_tokens wysłane: ${maxTokens}`);
+  if (message.stop_reason === "max_tokens") {
+    console.log(`   ⚠️ UWAGA: Tekst UCIĘTY przez limit tokenów!`);
+  }
 
   const response =
     message.content[0].type === "text" ? message.content[0].text : "";
