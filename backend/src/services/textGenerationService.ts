@@ -155,7 +155,7 @@ function calculateMaxTokens(targetLength: number): number {
   // 🔴 KLUCZOWA ZMIANA: 1 token ≈ 4 znaki dla polskiego HTML
   const baseTokens = Math.ceil(targetLength / 4);
 
-  const withMargin = Math.ceil(baseTokens * 1.85);
+  const withMargin = Math.ceil(baseTokens * 2.2);
 
   const MIN_TOKENS = 1000;
   const MAX_TOKENS = 16000; // 🔴 ZMNIEJSZONE!
@@ -165,7 +165,7 @@ function calculateMaxTokens(targetLength: number): number {
   console.log(`📊 KALKULACJA MAX_TOKENS:`);
   console.log(`   Target: ${targetLength} znaków`);
   console.log(`   Bazowe tokeny (÷4): ${baseTokens}`);
-  console.log(`   Z marginesem (×1.7): ${withMargin}`);
+  console.log(`   Z marginesem (×2.2): ${withMargin}`);
   console.log(
     `   🔒 FINAL: ${finalTokens} tokenów (max ~${finalTokens * 4} znaków)\n`
   );
