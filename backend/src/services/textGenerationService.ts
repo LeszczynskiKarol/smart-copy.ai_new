@@ -1170,8 +1170,14 @@ JAK KONTROLOWAĆ DŁUGOŚĆ:
     console.log(`   ⚠️ UWAGA: Tekst UCIĘTY przez limit tokenów!`);
   }
 
-  const response =
+  let response =
     message.content[0].type === "text" ? message.content[0].text : "";
+
+  // 🔄 JEŚLI UCIĘTY - KONTYNUUJ OD MIEJSCA PRZERWANIA
+  if (message.stop_reason === "max_tokens") {
+    console.log(`   🔄 Uruchamiam kontynuację od miejsca przerwania...`);
+    response = await continueFromTruncation(response, text, sources);
+  }
 
   const actualLength = response.length;
   console.log(`\n📏 DŁUGOŚĆ WYGENEROWANEJ TREŚCI:`);
@@ -1705,13 +1711,6 @@ async function verifyAndFixEnding(
     reason = reason ? reason + "+added_closing_tag" : "added_closing_tag";
   }
 
-  // Krok 4: Dodaj podsumowanie jeśli ostatnia część
-  if (isLastPart && textTopic) {
-    console.log(`   🔧 Krok 4: Dodaję podsumowanie (ostatnia część)...`);
-    fixed += `\n\n<p><strong>Podsumowanie:</strong> W artykule przedstawiono kluczowe aspekty tematu "${textTopic}".</p>`;
-    reason = reason ? reason + "+added_summary" : "added_summary";
-  }
-
   // PODSUMOWANIE
   console.log(`\n   📊 PODSUMOWANIE NAPRAWY:`);
   console.log(`      Długość przed: ${content.length} znaków`);
@@ -1732,6 +1731,121 @@ async function verifyAndFixEnding(
     wasTruncated: true,
     reason,
   };
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🔄 KONTYNUACJA OD MIEJSCA PRZERWANIA - ZAMIAST SZTUCZNEGO PODSUMOWANIA
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function continueFromTruncation(
+  truncatedContent: string,
+  text: any,
+  sources: string
+): Promise<string> {
+  console.log(`\n🔄🔄🔄 KONTYNUACJA OD MIEJSCA PRZERWANIA 🔄🔄🔄`);
+
+  // Znajdź ostatnie pełne zdanie
+  const lastDot = truncatedContent.lastIndexOf(". ");
+  const lastExclaim = truncatedContent.lastIndexOf("! ");
+  const lastQuestion = truncatedContent.lastIndexOf("? ");
+  const lastSentenceEnd = Math.max(lastDot, lastExclaim, lastQuestion);
+
+  // Przytnij do ostatniego pełnego zdania
+  let cleanContent = truncatedContent;
+  if (lastSentenceEnd > truncatedContent.length * 0.8) {
+    cleanContent = truncatedContent.substring(0, lastSentenceEnd + 1);
+  }
+
+  // Weź ostatnie 3000 znaków jako kontekst
+  const contextLength = 3000;
+  const lastContext = cleanContent.substring(
+    Math.max(0, cleanContent.length - contextLength)
+  );
+
+  console.log(
+    `   📏 Długość urwanego tekstu: ${truncatedContent.length} znaków`
+  );
+  console.log(`   📏 Długość po przycięciu: ${cleanContent.length} znaków`);
+  console.log(
+    `   📄 Kontekst do kontynuacji: ostatnie ${lastContext.length} znaków`
+  );
+
+  // Oblicz ile jeszcze potrzeba (minimum 500 znaków na dokończenie)
+  const remainingNeeded = Math.max(
+    500,
+    Math.min(2000, text.length - cleanContent.length + 500)
+  );
+  const maxTokens = Math.ceil(remainingNeeded / 3) + 500;
+
+  console.log(`   🎯 Potrzeba jeszcze: ~${remainingNeeded} znaków`);
+  console.log(`   🔢 Max tokens dla kontynuacji: ${maxTokens}`);
+
+  const continuationPrompt = `🔴🔴🔴 KRYTYCZNE ZADANIE: KONTYNUUJ TEKST 🔴🔴🔴
+
+Poniżej znajduje się KONIEC URWANEGO TEKSTU. Twoje zadanie to:
+1. KONTYNUUJ DOKŁADNIE od miejsca gdzie tekst się urywa
+2. ZAKOŃCZ PŁYNNIE i NATURALNIE
+3. Napisz ZAKOŃCZENIE artykułu (2-4 akapity)
+
+═══════════════════════════════════════════════════════════════
+📄 OSTATNIA CZĘŚĆ URWANEGO TEKSTU:
+═══════════════════════════════════════════════════════════════
+${lastContext}
+═══════════════════════════════════════════════════════════════
+
+⚠️⚠️⚠️ ZASADY KONTYNUACJI:
+1. NIE POWTARZAJ tego co już napisane!
+2. KONTYNUUJ od ostatniego zdania - płynnie!
+3. Napisz naturalne ZAKOŃCZENIE artykułu
+4. Użyj HTML: <p>, <strong> (bez <h1>, <h2> - to już było!)
+5. Zakończ na </p>
+6. Napisz ~${remainingNeeded} znaków
+
+TEMAT: ${text.topic}
+JĘZYK: ${text.language}
+
+🎯 KONTYNUUJ TEKST (${remainingNeeded} znaków, zakończ na </p>):`;
+
+  const message = await anthropic.messages.create({
+    model: "claude-sonnet-4-5-20250929",
+    max_tokens: maxTokens,
+    temperature: 0.7,
+    messages: [{ role: "user", content: continuationPrompt }],
+  });
+
+  const continuation =
+    message.content[0].type === "text" ? message.content[0].text : "";
+
+  console.log(`   ✅ Wygenerowano kontynuację: ${continuation.length} znaków`);
+  console.log(`   📄 Pierwsze 200 znaków kontynuacji:`);
+  console.log(`   "${continuation.substring(0, 200)}..."`);
+
+  // Połącz: przycięty tekst + kontynuacja
+  let finalContent = cleanContent;
+
+  if (!cleanContent.trimEnd().endsWith("</p>")) {
+    finalContent += "</p>\n\n";
+  } else {
+    finalContent += "\n\n";
+  }
+
+  finalContent += continuation.trim();
+
+  // Upewnij się że kończy się </p>
+  if (!finalContent.trimEnd().endsWith("</p>")) {
+    if (
+      !finalContent.trimEnd().endsWith(".") &&
+      !finalContent.trimEnd().endsWith("!") &&
+      !finalContent.trimEnd().endsWith("?")
+    ) {
+      finalContent += ".";
+    }
+    finalContent += "</p>";
+  }
+
+  console.log(`   📏 Finalna długość: ${finalContent.length} znaków`);
+  console.log(`🔄🔄🔄 KONIEC KONTYNUACJI 🔄🔄🔄\n`);
+
+  return finalContent;
 }
 
 // Pisarz - generuje treść na podstawie struktury
@@ -2046,8 +2160,14 @@ ${sources.substring(0, 50000)}
     console.log(`   ⚠️ UWAGA: Tekst UCIĘTY przez limit tokenów!`);
   }
 
-  const response =
+  let response =
     message.content[0].type === "text" ? message.content[0].text : "";
+
+  // 🔄 JEŚLI UCIĘTY - KONTYNUUJ OD MIEJSCA PRZERWANIA
+  if (message.stop_reason === "max_tokens") {
+    console.log(`   🔄 Uruchamiam kontynuację od miejsca przerwania...`);
+    response = await continueFromTruncation(response, text, sources);
+  }
 
   const actualLength = response.length;
   console.log(`\n📏 DŁUGOŚĆ WYGENEROWANEJ TREŚCI:`);
