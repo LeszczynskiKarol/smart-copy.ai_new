@@ -155,7 +155,7 @@ function calculateMaxTokens(targetLength: number): number {
   // 🔴 KLUCZOWA ZMIANA: 1 token ≈ 4 znaki dla polskiego HTML
   const baseTokens = Math.ceil(targetLength / 4);
 
-  const withMargin = Math.ceil(baseTokens * 2.2);
+  const withMargin = Math.ceil(baseTokens * 1.85);
 
   const MIN_TOKENS = 1000;
   const MAX_TOKENS = 16000; // 🔴 ZMNIEJSZONE!
@@ -1137,14 +1137,19 @@ ${
     : "⚠️ BRAK ŹRÓDEŁ ZEWNĘTRZNYCH - WYGENERUJ TREŚĆ NA PODSTAWIE WIEDZY OGÓLNEJ\nUżyj swojej wiedzy i kreatywności aby stworzyć wartościową, merytoryczną treść."
 }
 ═══════════════════════════════════════════════════════════════
-⚠️⚠️⚠️ KRYTYCZNE - ZARZĄDZANIE DŁUGOŚCIĄ:
+⚠️⚠️⚠️ KRYTYCZNE - TWARDY LIMIT DŁUGOŚCI:
 ═══════════════════════════════════════════════════════════════
-1. Monitoruj swoją długość podczas pisania
-2. Jeśli zbliżasz się do ${targetLength} znaków:
-   ✅ ZAKOŃCZ na sensownym miejscu (koniec akapitu lub sekcji)
-   ✅ Dodaj krótkie podsumowanie (300-400 znaków)
-   ✅ NIE ZOSTAWIAJ urwanego zdania!
-3. Pisz do końca struktury - masz wystarczająco tokenów!
+🔴 MAKSYMALNA DŁUGOŚĆ: ${Math.floor(targetLength * 1.15)} znaków
+🔴 NIE PISZ WIĘCEJ! ZOSTANIESZ UCIĘTY!
+
+JAK KONTROLOWAĆ DŁUGOŚĆ:
+1. Po KAŻDEJ sekcji <h2> sprawdź ile już napisałeś
+2. Gdy osiągniesz ~${Math.floor(targetLength * 0.85)} znaków → zacznij kończyć
+3. Przy ~${targetLength} znaków → NATYCHMIAST zakończ pełnym zdaniem!
+
+⚠️ PISZ ZWIĘŹLE! Nie rozpisuj się niepotrzebnie!
+⚠️ Lepiej 95% celu niż urwany tekst!
+⚠️ KAŻDE zdanie musi kończyć się kropką, wykrzyknikiem lub znakiem zapytania!
 ═══════════════════════════════════════════════════════════════
 🎯 NAPISZ TEKST (${targetLength} ZNAKÓW, ${requiredLists} list, ${requiredTables} tabel):
 ═══════════════════════════════════════════════════════════════`;
