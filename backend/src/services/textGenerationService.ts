@@ -1176,7 +1176,8 @@ JAK KONTROLOWAĆ DŁUGOŚĆ:
   // 🔄 JEŚLI UCIĘTY - KONTYNUUJ OD MIEJSCA PRZERWANIA
   if (message.stop_reason === "max_tokens") {
     console.log(`   🔄 Uruchamiam kontynuację od miejsca przerwania...`);
-    response = await continueFromTruncation(response, text, sources);
+    // 🆕 Dla krótkich tekstów nie ma struktury kierownika, przekazujemy undefined
+    response = await continueFromTruncation(response, text, sources, undefined);
   }
 
   const actualLength = response.length;
@@ -1739,7 +1740,8 @@ async function verifyAndFixEnding(
 async function continueFromTruncation(
   truncatedContent: string,
   text: any,
-  sources: string
+  sources: string,
+  plannedStructure?: string // 🆕 NOWY PARAMETR - struktura od kierownika
 ): Promise<string> {
   console.log(`\n🔄🔄🔄 KONTYNUACJA OD MIEJSCA PRZERWANIA 🔄🔄🔄`);
 
@@ -1769,25 +1771,113 @@ async function continueFromTruncation(
     `   📄 Kontekst do kontynuacji: ostatnie ${lastContext.length} znaków`
   );
 
-  // Oblicz ile jeszcze potrzeba (minimum 500 znaków na dokończenie)
+  // 🆕 ANALIZA STRUKTURY - co zostało napisane, a co brakuje
+  let structureAnalysis = "";
+  let missingSections: string[] = [];
+
+  if (plannedStructure) {
+    // Wyciągnij zaplanowane sekcje H2 ze struktury kierownika
+    const plannedH2Regex = /<h2[^>]*>([^<]*)<\/h2>/gi;
+    const plannedH2Matches = plannedStructure.match(plannedH2Regex) || [];
+    const plannedH2List = plannedH2Matches.map((h: string) =>
+      h.replace(/<[^>]*>/g, "").trim()
+    );
+
+    // Wyciągnij napisane sekcje H2 z urwanego tekstu
+    const writtenH2Matches = cleanContent.match(plannedH2Regex) || [];
+    const writtenH2List = writtenH2Matches.map((h: string) =>
+      h.replace(/<[^>]*>/g, "").trim()
+    );
+
+    // Znajdź brakujące sekcje
+    missingSections = plannedH2List.filter(
+      (planned: string) =>
+        !writtenH2List.some(
+          (written: string) =>
+            written
+              .toLowerCase()
+              .includes(planned.toLowerCase().substring(0, 20)) ||
+            planned
+              .toLowerCase()
+              .includes(written.toLowerCase().substring(0, 20))
+        )
+    );
+
+    console.log(`\n   📋 ANALIZA STRUKTURY:`);
+    console.log(`      Zaplanowane sekcje H2: ${plannedH2List.length}`);
+    plannedH2List.forEach((h: string, i: number) =>
+      console.log(`         ${i + 1}. ${h}`)
+    );
+    console.log(`      Napisane sekcje H2: ${writtenH2List.length}`);
+    writtenH2List.forEach((h: string, i: number) =>
+      console.log(`         ${i + 1}. ${h}`)
+    );
+    console.log(`      Brakujące sekcje: ${missingSections.length}`);
+    missingSections.forEach((h: string, i: number) =>
+      console.log(`         ${i + 1}. ${h}`)
+    );
+
+    if (missingSections.length > 0) {
+      structureAnalysis = `
+═══════════════════════════════════════════════════════════════
+📋 ZAPLANOWANA STRUKTURA OD KIEROWNIKA:
+═══════════════════════════════════════════════════════════════
+${plannedStructure}
+
+⚠️⚠️⚠️ BRAKUJĄCE SEKCJE (MUSISZ JE NAPISAĆ!):
+${missingSections.map((s, i) => `   ${i + 1}. ${s}`).join("\n")}
+
+✅ JUŻ NAPISANE SEKCJE:
+${writtenH2List.map((s: string, i: number) => `   ${i + 1}. ${s}`).join("\n")}
+
+🎯 TWOJE ZADANIE:
+- Dokończ bieżącą sekcję (jeśli urwana)
+- Napisz WSZYSTKIE brakujące sekcje: ${missingSections.join(", ")}
+- Dodaj naturalne ZAKOŃCZENIE artykułu
+═══════════════════════════════════════════════════════════════
+`;
+    } else {
+      structureAnalysis = `
+═══════════════════════════════════════════════════════════════
+📋 WSZYSTKIE SEKCJE ZOSTAŁY NAPISANE!
+═══════════════════════════════════════════════════════════════
+Tekst zawiera wszystkie zaplanowane sekcje.
+Twoim zadaniem jest tylko:
+1. Dokończyć ostatnią urwaną sekcję (jeśli jest urwana)
+2. Dodać naturalne ZAKOŃCZENIE artykułu (2-3 akapity)
+═══════════════════════════════════════════════════════════════
+`;
+    }
+  }
+
+  // Oblicz ile jeszcze potrzeba
   const remainingNeeded = Math.max(
     500,
-    Math.min(2000, text.length - cleanContent.length + 500)
+    Math.min(
+      missingSections.length > 0 ? 4000 : 2000, // 🆕 Więcej jeśli brakuje sekcji
+      text.length - cleanContent.length + 500
+    )
   );
-  const maxTokens = Math.ceil(remainingNeeded / 3) + 500;
+  const maxTokens = Math.ceil(remainingNeeded / 3) + 800; // 🆕 Większy margines
 
   console.log(`   🎯 Potrzeba jeszcze: ~${remainingNeeded} znaków`);
   console.log(`   🔢 Max tokens dla kontynuacji: ${maxTokens}`);
 
-  const continuationPrompt = `🔴🔴🔴 KRYTYCZNE ZADANIE: KONTYNUUJ TEKST 🔴🔴🔴
+  const continuationPrompt = `🔴🔴🔴 KRYTYCZNE ZADANIE: KONTYNUUJ I DOKOŃCZ TEKST 🔴🔴🔴
 
 Poniżej znajduje się KONIEC URWANEGO TEKSTU. Twoje zadanie to:
 1. KONTYNUUJ DOKŁADNIE od miejsca gdzie tekst się urywa
-2. ZAKOŃCZ PŁYNNIE i NATURALNIE
-3. Napisz ZAKOŃCZENIE artykułu (2-4 akapity)
+2. ${
+    missingSections.length > 0
+      ? `NAPISZ BRAKUJĄCE SEKCJE: ${missingSections.join(", ")}`
+      : "Dokończ bieżącą sekcję"
+  }
+3. ZAKOŃCZ PŁYNNIE i NATURALNIE artykuł
+
+${structureAnalysis}
 
 ═══════════════════════════════════════════════════════════════
-📄 OSTATNIA CZĘŚĆ URWANEGO TEKSTU:
+📄 OSTATNIA CZĘŚĆ URWANEGO TEKSTU (kontekst):
 ═══════════════════════════════════════════════════════════════
 ${lastContext}
 ═══════════════════════════════════════════════════════════════
@@ -1795,8 +1885,12 @@ ${lastContext}
 ⚠️⚠️⚠️ ZASADY KONTYNUACJI:
 1. NIE POWTARZAJ tego co już napisane!
 2. KONTYNUUJ od ostatniego zdania - płynnie!
-3. Napisz naturalne ZAKOŃCZENIE artykułu
-4. Użyj HTML: <p>, <strong> (bez <h1>, <h2> - to już było!)
+3. ${
+    missingSections.length > 0
+      ? `NAPISZ brakujące sekcje używając <h2>, <h3>, <p>`
+      : "Napisz naturalne ZAKOŃCZENIE artykułu"
+  }
+4. Użyj HTML: <p>, <h2>, <h3>, <strong> (ale NIE dodawaj nowego <h1>!)
 5. Zakończ na </p>
 6. Napisz ~${remainingNeeded} znaków
 
@@ -1816,8 +1910,8 @@ JĘZYK: ${text.language}
     message.content[0].type === "text" ? message.content[0].text : "";
 
   console.log(`   ✅ Wygenerowano kontynuację: ${continuation.length} znaków`);
-  console.log(`   📄 Pierwsze 200 znaków kontynuacji:`);
-  console.log(`   "${continuation.substring(0, 200)}..."`);
+  console.log(`   📄 Pierwsze 300 znaków kontynuacji:`);
+  console.log(`   "${continuation.substring(0, 300)}..."`);
 
   // Połącz: przycięty tekst + kontynuacja
   let finalContent = cleanContent;
@@ -2166,7 +2260,13 @@ ${sources.substring(0, 50000)}
   // 🔄 JEŚLI UCIĘTY - KONTYNUUJ OD MIEJSCA PRZERWANIA
   if (message.stop_reason === "max_tokens") {
     console.log(`   🔄 Uruchamiam kontynuację od miejsca przerwania...`);
-    response = await continueFromTruncation(response, text, sources);
+    // 🆕 Przekazujemy strukturę od kierownika!
+    response = await continueFromTruncation(
+      response,
+      text,
+      sources,
+      writerAssignment.structure // ← STRUKTURA KIEROWNIKA
+    );
   }
 
   const actualLength = response.length;
