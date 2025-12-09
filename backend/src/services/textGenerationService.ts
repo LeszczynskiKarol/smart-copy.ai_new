@@ -1533,297 +1533,253 @@ ODPOWIEDŹ (TYLKO VALID JSON, BEZ \`\`\`json):`;
   }
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 🔧 WERYFIKACJA ZAKOŃCZENIA - PRZYTNIJ TYLKO JEŚLI URWANY
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function verifyAndFixEnding(
   content: string,
   contentLength: number,
   isLastPart: boolean = false,
   textTopic: string = ""
 ): Promise<{ fixed: string; wasTruncated: boolean; reason: string }> {
-  console.log(`\n🔍🔍🔍 WERYFIKACJA ZAKOŃCZENIA - DEBUG 🔍🔍🔍`);
+  console.log(`\n🔍🔍🔍 WERYFIKACJA ZAKOŃCZENIA 🔍🔍🔍`);
   console.log(`   📏 Długość wejściowa: ${content.length} znaków`);
-  console.log(`   🎯 Cel: ${contentLength} znaków`);
-  console.log(`   📍 Ostatnia część: ${isLastPart ? "TAK" : "NIE"}`);
-
-  // Pokaż ostatnie 200 znaków
-  const last200 = content.substring(content.length - 200);
-  console.log(`\n   📄 OSTATNIE 200 ZNAKÓW TEKSTU:`);
-  console.log(`   ─────────────────────────────────────`);
-  console.log(`   "${last200}"`);
-  console.log(`   ─────────────────────────────────────`);
+  console.log(`   🎯 Cel: ${contentLength} znaków`); // ✅ UŻYTE
+  console.log(`   📍 Ostatnia część: ${isLastPart ? "TAK" : "NIE"}`); // ✅ UŻYTE
+  if (textTopic) {
+    console.log(`   📝 Temat: ${textTopic.substring(0, 50)}...`); // ✅ UŻYTE
+  }
 
   const trimmed = content.trimEnd();
+  let fixed = trimmed;
 
-  // 1. Sprawdź tagi HTML
-  const closingTags = [
-    "</p>",
-    "</ul>",
-    "</ol>",
-    "</table>",
-    "</h2>",
-    "</h3>",
-    "</li>",
-    "</td>",
-    "</tr>",
-    "</div>",
-    "</strong>",
-    "</em>",
-  ];
-  const endsWithClosingTag = closingTags.some((tag) => trimmed.endsWith(tag));
-  console.log(
-    `\n   🏷️ Kończy się tagiem HTML: ${
-      endsWithClosingTag ? "✅ TAK" : "❌ NIE"
-    }`
-  );
-  if (endsWithClosingTag) {
-    const matchedTag = closingTags.find((tag) => trimmed.endsWith(tag));
-    console.log(`      Tag: ${matchedTag}`);
-  }
-
-  // 2. Sprawdź urwany tag
+  // 1. Usuń urwany tag HTML jeśli jest
   const lastOpenBracket = content.lastIndexOf("<");
   const lastCloseBracket = content.lastIndexOf(">");
-  const hasUnclosedTag = lastOpenBracket > lastCloseBracket;
-  console.log(`   🏷️ Urwany tag HTML: ${hasUnclosedTag ? "⚠️ TAK" : "✅ NIE"}`);
-  if (hasUnclosedTag) {
-    console.log(`      Ostatni '<' na pozycji: ${lastOpenBracket}`);
-    console.log(`      Ostatni '>' na pozycji: ${lastCloseBracket}`);
-    console.log(
-      `      Fragment urwanego tagu: "${content.substring(lastOpenBracket)}"`
-    );
-  }
-
-  // 3. 🔴 NOWE: Sprawdź czy tekst kończy się pełnym zdaniem
-  // Znajdź ostatni tag zamykający (np. </p>) lub koniec tekstu
-  let textToCheck = trimmed;
-
-  // Jeśli kończy się tagiem, sprawdź tekst PRZED tagiem
-  if (endsWithClosingTag) {
-    const matchedTag = closingTags.find((tag) => trimmed.endsWith(tag));
-    if (matchedTag) {
-      textToCheck = trimmed.substring(0, trimmed.length - matchedTag.length);
-    }
-  }
-
-  // Usuń wszystkie tagi HTML żeby sprawdzić czysty tekst
-  const plainText = textToCheck.replace(/<[^>]*>/g, "").trim();
-  const lastChar = plainText.slice(-1);
-  const endsWithSentence = [".", "!", "?", ":"].includes(lastChar);
-
-  // 🆕 SPRAWDŹ CZY OSTATNIE SŁOWO JEST PEŁNE
-  const lastWord = plainText.split(/\s+/).pop() || "";
-  const incompletePatterns = [
-    /ując$/, // "niedziałając" zamiast "niedziałającą"
-    /ąc$/, // urwane imiesłowy
-    /[bcdfghjklmnprstwzćśżź]$/i, // kończy się na spółgłoskę (często urwane)
-  ];
-
-  // Sprawdź typowe urwane końcówki polskie
-  const polishWordEndings = [
-    "ać",
-    "eć",
-    "ić",
-    "ować",
-    "ywać",
-    "enie",
-    "anie",
-    "ość",
-    "ością",
-    "ości",
-  ];
-  const looksIncomplete = polishWordEndings.some((ending) => {
-    // Sprawdź czy słowo wygląda jak urwana wersja (np. "niedziałając" zamiast "niedziałającej")
-    const withoutLastChar = ending.slice(0, -1);
-    return (
-      lastWord.endsWith(withoutLastChar) &&
-      !lastWord.endsWith(ending) &&
-      lastWord.length > 5
-    );
-  });
-
-  // Dodatkowe sprawdzenie - czy kończy się na "ując" lub podobne
-  const obviouslyIncomplete = /[a-ząćęłńóśżź](ując|jąc|ąc)$/i.test(lastWord);
-
-  console.log(`   📝 Ostatnie słowo: "${lastWord}"`);
-  console.log(
-    `   📝 Wygląda na urwane: ${
-      looksIncomplete || obviouslyIncomplete ? "⚠️ TAK" : "✅ NIE"
-    }`
-  );
-
-  // Jeśli urwane słowo - przytnij do poprzedniego pełnego słowa
-  if (looksIncomplete || obviouslyIncomplete) {
-    console.log(`   🔧 Wykryto urwane słowo "${lastWord}" - przycinam...`);
-
-    // Znajdź pozycję ostatniego pełnego słowa (kończącego się na ".", "!", "?" lub poprawne słowo)
-    const words = plainText.split(/\s+/);
-    words.pop(); // Usuń urwane słowo
-
-    // Znajdź to miejsce w oryginalnym HTML
-    const lastGoodWord = words[words.length - 1];
-    if (lastGoodWord) {
-      // Szukaj ostatniego wystąpienia tego słowa + następnej spacji/tagu
-      const searchPattern = new RegExp(
-        lastGoodWord.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*",
-        "g"
-      );
-      let lastMatch;
-      let match;
-      while ((match = searchPattern.exec(trimmed)) !== null) {
-        lastMatch = match;
-      }
-
-      if (lastMatch) {
-        const cutPosition = lastMatch.index + lastMatch[0].length;
-        // Przytnij i dodaj kropkę jeśli trzeba
-        let newContent = trimmed.substring(0, cutPosition).trimEnd();
-        if (
-          !newContent.endsWith(".") &&
-          !newContent.endsWith("!") &&
-          !newContent.endsWith("?")
-        ) {
-          newContent += ".";
-        }
-        if (!newContent.endsWith("</p>")) {
-          newContent += "</p>";
-        }
-
-        console.log(`   ✅ Przycięto do: "...${newContent.slice(-100)}"`);
-        return {
-          fixed: newContent,
-          wasTruncated: true,
-          reason: "incomplete_word_removed",
-        };
-      }
-    }
-  }
-
-  console.log(`   📝 Ostatni znak tekstu (bez HTML): "${lastChar}"`);
-  console.log(
-    `   📝 Kończy się pełnym zdaniem: ${endsWithSentence ? "✅ TAK" : "❌ NIE"}`
-  );
-
-  // Pokaż ostatnie 100 znaków czystego tekstu
-  const lastPlain100 = plainText.substring(plainText.length - 100);
-  console.log(`\n   📄 OSTATNIE 100 ZNAKÓW (bez HTML):`);
-  console.log(`   "${lastPlain100}"`);
-
-  // ═══════════════════════════════════════════════════════════════
-  // DECYZJA: CZY TEKST JEST OK?
-  // ═══════════════════════════════════════════════════════════════
-
-  // ✅ TEKST IDEALNY - kończy się tagiem I pełnym zdaniem
-  if (endsWithClosingTag && !hasUnclosedTag && endsWithSentence) {
-    console.log(`\n   ✅✅✅ TEKST IDEALNY - ZERO ZMIAN ✅✅✅`);
-    return {
-      fixed: content,
-      wasTruncated: false,
-      reason: "perfect",
-    };
-  }
-
-  // ⚠️ TRZEBA NAPRAWIĆ
-  console.log(`\n   ⚠️ TEKST WYMAGA NAPRAWY...`);
-
-  let fixed = trimmed;
-  let reason = "";
-
-  // Krok 1: Usuń urwany tag HTML
-  if (hasUnclosedTag) {
-    console.log(`   🔧 Krok 1: Usuwam urwany tag HTML...`);
+  if (lastOpenBracket > lastCloseBracket) {
+    console.log(`   🔧 Usuwam urwany tag HTML...`);
     fixed = content.substring(0, lastOpenBracket).trimEnd();
-    console.log(`      Usunięto: "${content.substring(lastOpenBracket)}"`);
-    reason = "removed_unclosed_tag";
   }
 
-  // Krok 2: Znajdź ostatnie pełne zdanie
-  // Szukamy ostatniego ". " lub "! " lub "? " lub "." na końcu
-  const lastDot = fixed.lastIndexOf(". ");
-  const lastExclaim = fixed.lastIndexOf("! ");
-  const lastQuestion = fixed.lastIndexOf("? ");
-  const lastColon = fixed.lastIndexOf(": ");
+  // 2. 🆕 WALIDACJA PRZEZ CLAUDE - rozumie czy zdanie jest kompletne
+  const lastChunk = fixed.substring(Math.max(0, fixed.length - 800));
 
-  // Znajdź też samotną kropkę na końcu (bez spacji po niej)
-  const endsWithDot = fixed.trimEnd().endsWith(".");
-  const endsWithExclaim = fixed.trimEnd().endsWith("!");
-  const endsWithQuestion = fixed.trimEnd().endsWith("?");
+  console.log(`   🤖 Walidacja zakończenia przez Claude...`);
 
-  console.log(`\n   🔍 Szukam ostatniego pełnego zdania:`);
-  console.log(`      Ostatni ". " na pozycji: ${lastDot}`);
-  console.log(`      Ostatni "! " na pozycji: ${lastExclaim}`);
-  console.log(`      Ostatni "? " na pozycji: ${lastQuestion}`);
-  console.log(`      Kończy się na ".": ${endsWithDot}`);
-  console.log(`      Kończy się na "!": ${endsWithExclaim}`);
-  console.log(`      Kończy się na "?": ${endsWithQuestion}`);
+  try {
+    const validationPrompt = `Sprawdź czy ten fragment tekstu HTML kończy się POPRAWNYM, KOMPLETNYM zdaniem polskim.
 
-  // Jeśli tekst już kończy się pełnym zdaniem - OK
-  if (endsWithDot || endsWithExclaim || endsWithQuestion) {
-    console.log(`   ✅ Tekst kończy się pełnym zdaniem`);
-  } else {
-    // Przytnij do ostatniego pełnego zdania
-    const lastSentenceEnd = Math.max(
-      lastDot,
-      lastExclaim,
-      lastQuestion,
-      lastColon
-    );
+TEMAT TEKSTU: ${textTopic || "nieznany"}
+CZY TO OSTATNIA CZĘŚĆ: ${isLastPart ? "TAK - powinno być zakończenie" : "NIE"}
 
-    if (lastSentenceEnd > fixed.length * 0.8) {
-      // Ostatnie zdanie jest w ostatnich 20% tekstu - przytnij
-      console.log(`   🔧 Krok 2: Przycinam do ostatniego pełnego zdania...`);
-      const removedPart = fixed.substring(lastSentenceEnd + 1);
-      fixed = fixed.substring(0, lastSentenceEnd + 1).trimEnd();
-      console.log(
-        `      Usunięto urwany fragment: "${removedPart.substring(0, 100)}..."`
+FRAGMENT (ostatnie ~800 znaków):
+${lastChunk}
+
+SPRAWDŹ:
+1. Czy ostatnie zdanie jest gramatycznie poprawne?
+2. Czy nie jest urwane w połowie słowa? (np. "zaoszczę" zamiast "zaoszczędzony")
+3. Czy kończy się sensownie?
+${isLastPart ? "4. Czy ma naturalne zakończenie artykułu?" : ""}
+
+ODPOWIEDZ TYLKO W JSON (bez markdown):
+{
+  "isComplete": true/false,
+  "lastSentence": "ostatnie zdanie",
+  "problem": "opis problemu lub null",
+  "charsToRemove": 0
+}
+
+Jeśli isComplete=false, podaj w "charsToRemove" ile znaków od końca usunąć żeby mieć pełne zdanie.`;
+
+    const message = await anthropic.messages.create({
+      model: "claude-sonnet-4-5-20250929",
+      max_tokens: 300,
+      temperature: 0,
+      messages: [{ role: "user", content: validationPrompt }],
+    });
+
+    const response =
+      message.content[0].type === "text"
+        ? message.content[0].text.trim()
+        : "{}";
+    const cleanResponse = response
+      .replace(/```json\s*/g, "")
+      .replace(/```\s*/g, "")
+      .trim();
+    const result = JSON.parse(cleanResponse);
+
+    console.log(`   📊 Claude mówi: isComplete=${result.isComplete}`);
+    if (result.problem) {
+      console.log(`   ⚠️ Problem: ${result.problem}`);
+    }
+
+    if (!result.isComplete && result.charsToRemove > 0) {
+      console.log(`   ✂️ Przycinam ${result.charsToRemove} znaków...`);
+      fixed = fixed.substring(0, fixed.length - result.charsToRemove).trimEnd();
+
+      // Znajdź ostatnią kropkę/wykrzyknik/pytajnik
+      const lastPunctuation = Math.max(
+        fixed.lastIndexOf(". "),
+        fixed.lastIndexOf("! "),
+        fixed.lastIndexOf("? "),
+        fixed.lastIndexOf(".</p>"),
+        fixed.lastIndexOf("!</p>"),
+        fixed.lastIndexOf("?</p>")
       );
-      console.log(`      Nowa długość: ${fixed.length} znaków`);
-      reason = reason ? reason + "+trimmed_sentence" : "trimmed_sentence";
-    } else {
-      console.log(
-        `   ⚠️ Ostatnie zdanie zbyt daleko (${lastSentenceEnd}) - dodaję kropkę`
-      );
-      fixed = fixed.trimEnd();
-      if (
-        !fixed.endsWith(".") &&
-        !fixed.endsWith("!") &&
-        !fixed.endsWith("?")
-      ) {
-        fixed += ".";
+
+      if (lastPunctuation > fixed.length * 0.85) {
+        // Mamy dobry punkt - przytnij tam
+        if (fixed[lastPunctuation + 1] === "<") {
+          // Kończy się np. ".</p>" - zostaw
+          fixed = fixed.substring(0, lastPunctuation + 5);
+        } else {
+          // Kończy się np. ". " - dodaj </p>
+          fixed = fixed.substring(0, lastPunctuation + 1) + "</p>";
+        }
       }
-      reason = reason ? reason + "+added_period" : "added_period";
+    }
+  } catch (error) {
+    console.error(`   ❌ Błąd walidacji Claude:`, error);
+    // Fallback: przytnij do ostatniej kropki
+    const lastDot = fixed.lastIndexOf(". ");
+    if (lastDot > fixed.length * 0.85) {
+      fixed = fixed.substring(0, lastDot + 1) + "</p>";
+      console.log(`   🔧 Fallback: przycięto do ostatniej kropki`);
     }
   }
 
-  // Krok 3: Upewnij się że kończy się tagiem </p>
-  const nowEndsWithTag = closingTags.some((tag) => fixed.endsWith(tag));
-  if (!nowEndsWithTag) {
-    console.log(`   🔧 Krok 3: Dodaję </p> na końcu...`);
+  // 3. Upewnij się że kończy się tagiem </p>
+  const closingTags = ["</p>", "</ul>", "</ol>", "</table>", "</li>"];
+  if (!closingTags.some((tag) => fixed.endsWith(tag))) {
+    if (!fixed.endsWith(".") && !fixed.endsWith("!") && !fixed.endsWith("?")) {
+      fixed += ".";
+    }
     fixed += "</p>";
-    reason = reason ? reason + "+added_closing_tag" : "added_closing_tag";
+    console.log(`   🔧 Dodano </p> na końcu`);
   }
 
-  // PODSUMOWANIE
-  console.log(`\n   📊 PODSUMOWANIE NAPRAWY:`);
-  console.log(`      Długość przed: ${content.length} znaków`);
-  console.log(`      Długość po: ${fixed.length} znaków`);
-  console.log(`      Różnica: ${fixed.length - content.length} znaków`);
-  console.log(`      Powód: ${reason}`);
-
-  // Pokaż nowe ostatnie 200 znaków
-  const newLast200 = fixed.substring(fixed.length - 200);
-  console.log(`\n   📄 NOWE OSTATNIE 200 ZNAKÓW:`);
-  console.log(`   ─────────────────────────────────────`);
-  console.log(`   "${newLast200}"`);
-  console.log(`   ─────────────────────────────────────`);
+  // 4. ✅ UŻYJ contentLength do logowania
+  const percentOfTarget = Math.round((fixed.length / contentLength) * 100);
+  console.log(
+    `   📊 Długość po: ${fixed.length} znaków (${percentOfTarget}% celu)`
+  );
   console.log(`🔍🔍🔍 KONIEC WERYFIKACJI 🔍🔍🔍\n`);
 
   return {
     fixed,
-    wasTruncated: true,
-    reason,
+    wasTruncated: fixed.length !== content.length,
+    reason: "validated_by_claude",
   };
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🆕 DODAJ TĘ FUNKCJĘ - WALIDACJA LINKÓW SEO
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+function validateSeoLinks(
+  content: string,
+  requiredLinks: Array<{ url: string; anchor: string }>
+): {
+  valid: boolean;
+  foundCount: number;
+  missingLinks: Array<{ url: string; anchor: string }>;
+} {
+  console.log(`\n🔗 WALIDACJA LINKÓW SEO...`);
+  console.log(`   Wymagane linki: ${requiredLinks.length}`);
+
+  const missingLinks: Array<{ url: string; anchor: string }> = [];
+  let foundCount = 0;
+
+  for (const link of requiredLinks) {
+    // Szukaj href z tym URL
+    const urlEscaped = link.url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const hrefRegex = new RegExp(
+      `<a[^>]*href=["']${urlEscaped}["'][^>]*>`,
+      "i"
+    );
+
+    if (hrefRegex.test(content)) {
+      foundCount++;
+      console.log(
+        `   ✅ Znaleziono: "${link.anchor}" → ${link.url.substring(0, 50)}...`
+      );
+    } else {
+      console.log(
+        `   ❌ BRAK: "${link.anchor}" → ${link.url.substring(0, 50)}...`
+      );
+      missingLinks.push(link);
+    }
+  }
+
+  console.log(`   📊 Znaleziono: ${foundCount}/${requiredLinks.length} linków`);
+
+  return {
+    valid: foundCount >= requiredLinks.length,
+    foundCount,
+    missingLinks,
+  };
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🆕 DODAJ TĘ FUNKCJĘ - WSTAWIANIE BRAKUJĄCYCH LINKÓW
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+async function addMissingSeoLinks(
+  content: string,
+  missingLinks: Array<{ url: string; anchor: string }>
+): Promise<string> {
+  if (missingLinks.length === 0) return content;
+
+  console.log(`\n🔗 WSTAWIANIE ${missingLinks.length} BRAKUJĄCYCH LINKÓW...`);
+
+  const prompt = `Musisz NATURALNIE wstawić brakujące linki SEO do tekstu HTML.
+
+BRAKUJĄCE LINKI:
+${missingLinks
+  .map((l, i) => `${i + 1}. <a href="${l.url}">${l.anchor}</a>`)
+  .join("\n")}
+
+ZASADY WSTAWIANIA:
+1. Wstaw W ŚRODKU akapitu <p> - NIE na początku, NIE na końcu
+2. Anchor musi pasować GRAMATYCZNIE do kontekstu
+3. NIE wstawiaj w nagłówki <h1>, <h2>, <h3>
+4. NIE zmieniaj anchora - użyj dokładnie takiego jak podany
+5. Zachowaj resztę tekstu BEZ ZMIAN
+
+TEKST HTML:
+${content}
+
+Zwróć TYLKO zmodyfikowany HTML (bez komentarzy, bez markdown):`;
+
+  try {
+    const message = await anthropic.messages.create({
+      model: "claude-sonnet-4-5-20250929",
+      max_tokens: Math.ceil(content.length / 3) + 2000,
+      temperature: 0.3,
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const response =
+      message.content[0].type === "text" ? message.content[0].text.trim() : "";
+
+    // Sprawdź czy linki zostały dodane
+    let addedCount = 0;
+    for (const link of missingLinks) {
+      if (response.includes(link.url)) {
+        addedCount++;
+      }
+    }
+
+    if (addedCount > 0) {
+      console.log(
+        `   ✅ Wstawiono ${addedCount}/${missingLinks.length} linków`
+      );
+      return response;
+    } else {
+      console.log(`   ⚠️ Nie udało się wstawić linków`);
+      return content;
+    }
+  } catch (error) {
+    console.error(`   ❌ Błąd wstawiania linków:`, error);
+    return content;
+  }
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2616,6 +2572,52 @@ export async function generateContent(textId: string) {
         `✅ Łącznie: ${finalContent.length} znaków HTML (${maxWriters} części)`
       );
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🆕 POST-PROCESSING: WALIDACJA I NAPRAWY KOŃCOWE
+    // ═══════════════════════════════════════════════════════════════
+
+    // 1. Walidacja zakończenia (Claude sprawdza czy nie urwane)
+    console.log(`\n📋 POST-PROCESSING...`);
+    const endingValidation = await verifyAndFixEnding(
+      finalContent,
+      text.length,
+      true,
+      text.topic
+    );
+    finalContent = endingValidation.fixed;
+
+    // 2. Walidacja i uzupełnienie linków SEO
+    const seoLinks = text.seoLinks ? JSON.parse(text.seoLinks) : [];
+    if (seoLinks.length > 0) {
+      const linkValidation = validateSeoLinks(finalContent, seoLinks);
+
+      if (!linkValidation.valid && linkValidation.missingLinks.length > 0) {
+        console.log(
+          `\n⚠️ BRAKUJE ${linkValidation.missingLinks.length} LINKÓW SEO!`
+        );
+
+        // Spróbuj dodać brakujące linki
+        finalContent = await addMissingSeoLinks(
+          finalContent,
+          linkValidation.missingLinks
+        );
+
+        // Re-walidacja
+        const reValidation = validateSeoLinks(finalContent, seoLinks);
+        if (reValidation.valid) {
+          console.log(`✅ Wszystkie linki SEO dodane`);
+        } else {
+          console.log(
+            `⚠️ Nadal brakuje ${reValidation.missingLinks.length} linków - warning`
+          );
+        }
+      } else {
+        console.log(`✅ Wszystkie ${seoLinks.length} linki SEO są w tekście`);
+      }
+    }
+
+    console.log(`📋 POST-PROCESSING ZAKOŃCZONY\n`);
 
     // Zapisz wygenerowaną treść (bez zmian)
     const existingData = JSON.parse(text.content || "{}");
