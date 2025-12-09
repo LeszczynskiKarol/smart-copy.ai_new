@@ -638,6 +638,11 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
       return;
     }
 
+    console.log("📤 SEO DATA:", {
+      keywords: seoKeywords,
+      links: seoLinks,
+    });
+
     // ✅ DODAJ DANE SEO
     const textWithSeo = {
       ...data,
@@ -804,13 +809,18 @@ export const OrderForm = ({ onSuccess }: { onSuccess?: () => void }) => {
         }
       }
 
+      console.log("📤 SEO DATA:", {
+        keywords: seoKeywords,
+        links: seoLinks,
+      });
+
       const textWithSeo = {
         ...data,
         seoData:
-          seoKeywords.length > 0 || seoLinks.length > 0
+          finalKeywords.length > 0 || finalLinks.length > 0
             ? {
-                keywords: seoKeywords,
-                links: seoLinks,
+                keywords: finalKeywords,
+                links: finalLinks,
               }
             : undefined,
       };

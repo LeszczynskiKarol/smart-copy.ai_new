@@ -13,6 +13,10 @@ const GOOGLE_CX = process.env.GOOGLE_CX || "47c4cfcb21523490f";
 
 // ✅ HELPER: Generuj instrukcje SEO dla promptu
 function generateSeoInstructions(text: any): string {
+  console.log("🎯 generateSeoInstructions CALLED");
+  console.log("   seoKeywords raw:", text.seoKeywords);
+  console.log("   seoLinks raw:", text.seoLinks);
+
   let seoInstructions = "";
 
   // Parse JSON z bazy
@@ -1608,6 +1612,94 @@ async function verifyAndFixEnding(
   const lastChar = plainText.slice(-1);
   const endsWithSentence = [".", "!", "?", ":"].includes(lastChar);
 
+  // 🆕 SPRAWDŹ CZY OSTATNIE SŁOWO JEST PEŁNE
+  const lastWord = plainText.split(/\s+/).pop() || "";
+  const incompletePatterns = [
+    /ując$/, // "niedziałając" zamiast "niedziałającą"
+    /ąc$/, // urwane imiesłowy
+    /[bcdfghjklmnprstwzćśżź]$/i, // kończy się na spółgłoskę (często urwane)
+  ];
+
+  // Sprawdź typowe urwane końcówki polskie
+  const polishWordEndings = [
+    "ać",
+    "eć",
+    "ić",
+    "ować",
+    "ywać",
+    "enie",
+    "anie",
+    "ość",
+    "ością",
+    "ości",
+  ];
+  const looksIncomplete = polishWordEndings.some((ending) => {
+    // Sprawdź czy słowo wygląda jak urwana wersja (np. "niedziałając" zamiast "niedziałającej")
+    const withoutLastChar = ending.slice(0, -1);
+    return (
+      lastWord.endsWith(withoutLastChar) &&
+      !lastWord.endsWith(ending) &&
+      lastWord.length > 5
+    );
+  });
+
+  // Dodatkowe sprawdzenie - czy kończy się na "ując" lub podobne
+  const obviouslyIncomplete = /[a-ząćęłńóśżź](ując|jąc|ąc)$/i.test(lastWord);
+
+  console.log(`   📝 Ostatnie słowo: "${lastWord}"`);
+  console.log(
+    `   📝 Wygląda na urwane: ${
+      looksIncomplete || obviouslyIncomplete ? "⚠️ TAK" : "✅ NIE"
+    }`
+  );
+
+  // Jeśli urwane słowo - przytnij do poprzedniego pełnego słowa
+  if (looksIncomplete || obviouslyIncomplete) {
+    console.log(`   🔧 Wykryto urwane słowo "${lastWord}" - przycinam...`);
+
+    // Znajdź pozycję ostatniego pełnego słowa (kończącego się na ".", "!", "?" lub poprawne słowo)
+    const words = plainText.split(/\s+/);
+    words.pop(); // Usuń urwane słowo
+
+    // Znajdź to miejsce w oryginalnym HTML
+    const lastGoodWord = words[words.length - 1];
+    if (lastGoodWord) {
+      // Szukaj ostatniego wystąpienia tego słowa + następnej spacji/tagu
+      const searchPattern = new RegExp(
+        lastGoodWord.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*",
+        "g"
+      );
+      let lastMatch;
+      let match;
+      while ((match = searchPattern.exec(trimmed)) !== null) {
+        lastMatch = match;
+      }
+
+      if (lastMatch) {
+        const cutPosition = lastMatch.index + lastMatch[0].length;
+        // Przytnij i dodaj kropkę jeśli trzeba
+        let newContent = trimmed.substring(0, cutPosition).trimEnd();
+        if (
+          !newContent.endsWith(".") &&
+          !newContent.endsWith("!") &&
+          !newContent.endsWith("?")
+        ) {
+          newContent += ".";
+        }
+        if (!newContent.endsWith("</p>")) {
+          newContent += "</p>";
+        }
+
+        console.log(`   ✅ Przycięto do: "...${newContent.slice(-100)}"`);
+        return {
+          fixed: newContent,
+          wasTruncated: true,
+          reason: "incomplete_word_removed",
+        };
+      }
+    }
+  }
+
   console.log(`   📝 Ostatni znak tekstu (bez HTML): "${lastChar}"`);
   console.log(
     `   📝 Kończy się pełnym zdaniem: ${endsWithSentence ? "✅ TAK" : "❌ NIE"}`
@@ -1853,11 +1945,11 @@ Twoim zadaniem jest tylko:
   // Oblicz ile jeszcze potrzeba
   const remainingNeeded = Math.max(
     500,
-    Math.min(
-      missingSections.length > 0 ? 4000 : 2000, // 🆕 Więcej jeśli brakuje sekcji
-      text.length - cleanContent.length + 500
-    )
+    missingSections.length > 0
+      ? missingSections.length * 2000 // 🆕 ~2000 znaków na sekcję H2
+      : Math.min(2000, text.length - cleanContent.length + 500)
   );
+
   const maxTokens = Math.ceil(remainingNeeded / 3) + 800; // 🆕 Większy margines
 
   console.log(`   🎯 Potrzeba jeszcze: ~${remainingNeeded} znaków`);
@@ -2260,13 +2352,57 @@ ${sources.substring(0, 50000)}
   // 🔄 JEŚLI UCIĘTY - KONTYNUUJ OD MIEJSCA PRZERWANIA
   if (message.stop_reason === "max_tokens") {
     console.log(`   🔄 Uruchamiam kontynuację od miejsca przerwania...`);
-    // 🆕 Przekazujemy strukturę od kierownika!
-    response = await continueFromTruncation(
-      response,
-      text,
-      sources,
-      writerAssignment.structure // ← STRUKTURA KIEROWNIKA
-    );
+
+    let attempts = 0;
+    let missingSections: string[] = [];
+
+    do {
+      response = await continueFromTruncation(
+        response,
+        text,
+        sources,
+        writerAssignment.structure
+      );
+
+      // Przelicz missingSections
+      const plannedH2Regex = /<h2[^>]*>([^<]*)<\/h2>/gi;
+      const plannedH2Matches =
+        writerAssignment.structure.match(plannedH2Regex) || [];
+      const plannedH2List = plannedH2Matches.map((h: string) =>
+        h.replace(/<[^>]*>/g, "").trim()
+      );
+
+      const writtenH2Matches = response.match(plannedH2Regex) || [];
+      const writtenH2List = writtenH2Matches.map((h: string) =>
+        h.replace(/<[^>]*>/g, "").trim()
+      );
+
+      missingSections = plannedH2List.filter(
+        (planned: string) =>
+          !writtenH2List.some(
+            (written: string) =>
+              written
+                .toLowerCase()
+                .includes(planned.toLowerCase().substring(0, 20)) ||
+              planned
+                .toLowerCase()
+                .includes(written.toLowerCase().substring(0, 20))
+          )
+      );
+
+      attempts++;
+      console.log(
+        `   🔄 Kontynuacja #${attempts}: brakuje jeszcze ${missingSections.length} sekcji`
+      );
+    } while (missingSections.length > 0 && attempts < 3);
+
+    if (missingSections.length > 0) {
+      console.log(
+        `   ⚠️ Po ${attempts} próbach nadal brakuje: ${missingSections.join(
+          ", "
+        )}`
+      );
+    }
   }
 
   const actualLength = response.length;
@@ -2414,10 +2550,15 @@ export async function generateContent(textId: string) {
       console.log(`✅ Struktura HTML utworzona`);
 
       console.log("🔹 Pisarz: Generowanie treści HTML...");
+      // ✅ FIX: Przekazujemy part aby SEO instrukcje zostały wygenerowane!
       finalContent = await generateWithStructure(
         text,
         structureData.writerAssignments[0],
-        sources
+        sources,
+        {
+          number: 1,
+          total: 1,
+        }
       );
       console.log(`✅ Wygenerowano ${finalContent.length} znaków HTML`);
     }
