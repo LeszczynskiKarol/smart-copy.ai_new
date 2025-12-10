@@ -1252,7 +1252,7 @@ async function generateStructure(
   if (writersCount === 1) {
     // ✅ NOWY PROMPT Z OGRANICZENIEM STRUKTURY
     const maxSections = Math.max(2, Math.ceil(text.length / 4000)); // 10k = 2-3 sekcje H2
-    const maxSubsections = Math.max(2, Math.ceil(text.length / 3000)); // 10k = 3-4 podsekcje H3
+    const maxSubsections = Math.max(2, Math.ceil(text.length / 4000)); // 10k = 2-3 podsekcje H3
 
     prompt = `Jesteś kierownikiem projektu content. Określ ZWIĘZŁĄ strukturę HTML.
 
@@ -1609,7 +1609,7 @@ Jeśli isComplete=false, podaj w "charsToRemove" ile znaków od końca usunąć 
       .replace(/```json\s*/g, "")
       .replace(/```\s*/g, "")
       .trim();
-    const result = JSON.parse(cleanResponse);
+    result = JSON.parse(cleanResponse);
 
     console.log(`   📊 Claude mówi: isComplete=${result.isComplete}`);
     if (result.problem) {
@@ -1667,6 +1667,12 @@ Jeśli isComplete=false, podaj w "charsToRemove" ile znaków od końca usunąć 
     `   📊 Długość po: ${fixed.length} znaków (${percentOfTarget}% celu)`
   );
   console.log(`🔍🔍🔍 KONIEC WERYFIKACJI 🔍🔍🔍\n`);
+
+  console.log(
+    `   📊 RETURN: isComplete=${result.isComplete}, wasTruncated=${
+      fixed.length !== content.length || !result.isComplete
+    }`
+  );
 
   return {
     fixed,
@@ -2607,9 +2613,19 @@ export async function generateContent(textId: string) {
     console.log(`\n📋 POST-PROCESSING...`);
 
     let attempts = 0;
-    const MAX_COMPLETION_ATTEMPTS = 3;
+    const MAX_COMPLETION_ATTEMPTS = 5;
 
     while (attempts < MAX_COMPLETION_ATTEMPTS) {
+      // 🆕 Warunek wyjścia: tekst już >150% celu
+      if (finalContent.length > text.length * 1.5) {
+        console.log(
+          `   ⚠️ Tekst przekracza 150% celu (${finalContent.length} > ${
+            text.length * 1.5
+          }) - kończę`
+        );
+        break;
+      }
+
       const endingValidation = await verifyAndFixEnding(
         finalContent,
         text.length,
