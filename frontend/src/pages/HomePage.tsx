@@ -28,6 +28,10 @@ import {
   Upload,
   Wallet,
   Check,
+  Clock,
+  Zap,
+  TrendingUp,
+  Quote,
   X,
 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -919,6 +923,221 @@ export const HomePage = () => {
                 ))}
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* Case Study Section - Real Results */}
+        <section className="py-24 bg-white dark:bg-gray-800">
+          <div className="container-custom">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              viewport={{ once: true }}
+              className="text-center mb-16"
+            >
+              <div className="inline-flex items-center gap-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-4 py-2 rounded-full text-sm font-semibold mb-4">
+                <TrendingUp className="w-4 h-4" />
+                PRAWDZIWY PRZYKŁAD
+              </div>
+              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-4">
+                Artykuł ekspercki w{" "}
+                <span className="text-purple-600">5 minut</span> za{" "}
+                <span className="text-green-600">3 zł</span>
+              </h2>
+              <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+                Zobacz, jak Smart-Copy.AI wygenerował profesjonalny artykuł
+                blogowy o automatyzacji biznesu — i oceń efekt sam
+              </p>
+            </motion.div>
+
+            {/* Main Case Study Card */}
+            <div className="max-w-5xl mx-auto">
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.7 }}
+                viewport={{ once: true }}
+                className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 rounded-3xl shadow-2xl overflow-hidden border border-gray-200 dark:border-gray-700"
+              >
+                {/* Stats Bar */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-6 bg-gradient-to-r from-purple-600 to-indigo-600">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-white">5 min</div>
+                    <div className="text-purple-200 text-sm">
+                      Czas generowania
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-white">3 zł</div>
+                    <div className="text-purple-200 text-sm">Koszt API</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-white">2800</div>
+                    <div className="text-purple-200 text-sm">
+                      Słów w artykule
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-white">8/10</div>
+                    <div className="text-purple-200 text-sm">Ocena jakości</div>
+                  </div>
+                </div>
+
+                <div className="p-8 md:p-12">
+                  {/* Article Preview */}
+                  <div className="mb-10">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
+                        <FileText className="w-5 h-5 text-purple-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-gray-900 dark:text-white">
+                          Wygenerowany artykuł
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          Kategoria: Automatyzacja biznesu
+                        </p>
+                      </div>
+                    </div>
+
+                    <a
+                      href="https://www.torweb.pl/blog/automatyzacja-procesow-w-malej-firmie/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block group"
+                    >
+                      <div className="bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl p-6 hover:border-purple-500 dark:hover:border-purple-500 transition-all hover:shadow-lg">
+                        <div className="flex items-start justify-between gap-4 mb-3">
+                          <h4 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-purple-600 transition-colors">
+                            "Automatyzacja procesów w małej firmie - jak
+                            zacząć?"
+                          </h4>
+                          <div className="flex-shrink-0 w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center group-hover:bg-purple-600 transition-colors">
+                            <ArrowRight className="w-5 h-5 text-purple-600 group-hover:text-white transition-colors" />
+                          </div>
+                        </div>
+                        <p className="text-gray-600 dark:text-gray-400 mb-4">
+                          Kompleksowy poradnik zawierający: przegląd narzędzi
+                          (Make.com, Zapier), tabelę porównawczą 7 rozwiązań z
+                          cenami, praktyczne case studies firm z Torunia i
+                          Bydgoszczy, listę pytań do audytu procesów...
+                        </p>
+                        <div className="flex flex-wrap gap-2 mb-4">
+                          <span className="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-xs font-medium">
+                            Tabele porównawcze
+                          </span>
+                          <span className="px-3 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full text-xs font-medium">
+                            Case studies
+                          </span>
+                          <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">
+                            Listy checklistowe
+                          </span>
+                          <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-xs font-medium">
+                            SEO-optimized
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 font-semibold">
+                          <span>Zobacz pełny artykuł na żywo</span>
+                          <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                        </div>
+                      </div>
+                    </a>
+                  </div>
+
+                  {/* Comparison Table */}
+                  <div className="grid md:grid-cols-3 gap-6 mb-10">
+                    <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-xl p-6 text-center">
+                      <X className="w-8 h-8 text-red-500 mx-auto mb-3" />
+                      <h4 className="font-bold text-gray-900 dark:text-white mb-2">
+                        Copywriter
+                      </h4>
+                      <div className="text-2xl font-bold text-red-600 mb-1">
+                        300-500 zł
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        2-3 dni robocze
+                      </div>
+                    </div>
+                    <div className="bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800 rounded-xl p-6 text-center">
+                      <Clock className="w-8 h-8 text-yellow-500 mx-auto mb-3" />
+                      <h4 className="font-bold text-gray-900 dark:text-white mb-2">
+                        Pisanie samemu
+                      </h4>
+                      <div className="text-2xl font-bold text-yellow-600 mb-1">
+                        0 zł
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        4-6 godzin pracy
+                      </div>
+                    </div>
+                    <div className="bg-green-50 dark:bg-green-900/10 border-2 border-green-500 rounded-xl p-6 text-center relative">
+                      <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold">
+                        NAJLEPSZY WYBÓR
+                      </div>
+                      <Zap className="w-8 h-8 text-green-500 mx-auto mb-3" />
+                      <h4 className="font-bold text-gray-900 dark:text-white mb-2">
+                        Smart-Copy.AI
+                      </h4>
+                      <div className="text-2xl font-bold text-green-600 mb-1">
+                        ~3 zł
+                      </div>
+                      <div className="text-sm text-gray-500">5 minut</div>
+                    </div>
+                  </div>
+
+                  {/* Quote */}
+                  <div className="p-6 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-xl">
+                    <div className="flex items-start gap-4">
+                      <Quote className="w-8 h-8 text-purple-400 flex-shrink-0 mt-1" />
+                      <div>
+                        <p className="text-gray-700 dark:text-gray-300 italic mb-4 text-lg leading-relaxed">
+                          "Smart-Copy wygenerował 80% gotowego artykułu w 5
+                          minut. Dodałem swoje case study, poprawiłem kilka
+                          statystyk i po 30 minutach miałem profesjonalny
+                          content gotowy do publikacji. Oszczędzam 5+ godzin
+                          tygodniowo na tworzeniu treści."
+                        </p>
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                            K
+                          </div>
+                          <div>
+                            <div className="font-bold text-gray-900 dark:text-white">
+                              Karol
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              Właściciel agencji webowej, Toruń
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+
+            {/* Bottom CTA */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              viewport={{ once: true }}
+              className="text-center mt-12"
+            >
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                Chcesz zobaczyć, jak Smart-Copy sprawdzi się dla Twojego
+                biznesu?
+              </p>
+              <Link
+                to="/register"
+                className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-8 py-4 rounded-xl font-bold text-lg shadow-xl hover:shadow-purple-500/30 transform hover:scale-105 transition-all"
+              >
+                Wypróbuj za darmo
+                <ArrowRight className="w-5 h-5" />
+              </Link>
+            </motion.div>
           </div>
         </section>
 
