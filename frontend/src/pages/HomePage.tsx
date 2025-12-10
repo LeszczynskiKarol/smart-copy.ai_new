@@ -943,7 +943,7 @@ export const HomePage = () => {
               <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-4">
                 Artykuł ekspercki w{" "}
                 <span className="text-purple-600">5 minut</span> za{" "}
-                <span className="text-green-600">3 zł</span>
+                <span className="text-green-600">52 zł</span>
               </h2>
               <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
                 Zobacz, jak Smart-Copy.AI wygenerował profesjonalny artykuł
@@ -969,8 +969,10 @@ export const HomePage = () => {
                     </div>
                   </div>
                   <div className="text-center">
-                    <div className="text-3xl font-bold text-white">3 zł</div>
-                    <div className="text-purple-200 text-sm">Koszt API</div>
+                    <div className="text-3xl font-bold text-white">52 zł</div>
+                    <div className="text-purple-200 text-sm">
+                      Koszt Smart-Copy.ai
+                    </div>
                   </div>
                   <div className="text-center">
                     <div className="text-3xl font-bold text-white">2800</div>
@@ -1080,7 +1082,7 @@ export const HomePage = () => {
                         Smart-Copy.AI
                       </h4>
                       <div className="text-2xl font-bold text-green-600 mb-1">
-                        ~3 zł
+                        ~52 zł
                       </div>
                       <div className="text-sm text-gray-500">5 minut</div>
                     </div>
