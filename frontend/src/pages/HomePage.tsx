@@ -279,8 +279,8 @@ export const HomePage = () => {
     <>
       <Helmet>
         <title>
-          Generator Tekstów AI | Sztuczna Inteligencja do Tworzenia Treści -
-          Smart-Copy.ai
+          Generator AI do Pisania Tekstów | Sztuczna Inteligencja do Tworzenia
+          Treści - Smart-Copy.ai
         </title>
         <meta
           name="description"
