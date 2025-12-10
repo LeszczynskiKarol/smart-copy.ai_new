@@ -63,85 +63,67 @@ ${seoKeywords.map((kw: string, i: number) => `   ${i + 1}. "${kw}"`).join("\n")}
 `;
   }
 
-  // LINKOWANIE
+  // LINKOWANIE - WZMOCNIONA WERSJA
   if (seoLinks.length > 0) {
     const characters = text.length;
     const maxLinks = characters <= 2000 ? 2 : characters <= 5000 ? 3 : 5;
+    const linksToUse = Math.min(seoLinks.length, maxLinks);
 
     seoInstructions += `
 
-🔗 LINKOWANIE ZEWNĘTRZNE - BARDZO WAŻNE!
+╔═══════════════════════════════════════════════════════════════╗
+║  🔴🔴🔴 OBOWIĄZKOWE LINKI SEO - MUSISZ JE DODAĆ! 🔴🔴🔴       ║
+╚═══════════════════════════════════════════════════════════════╝
+
+⚠️ UWAGA: Tekst bez linków SEO zostanie ODRZUCONY!
+⚠️ Klient ZAPŁACIŁ za linkowanie - MUSI je otrzymać!
+
+🔗 WYMAGANE LINKI (DODAJ WSZYSTKIE ${linksToUse}!):
 ${seoLinks
+  .slice(0, linksToUse)
   .map(
     (link: any, i: number) =>
       `   ${i + 1}. <a href="${link.url}">${link.anchor}</a>`
   )
   .join("\n")}
 
-⚠️⚠️⚠️ KRYTYCZNE ZASADY LINKOWANIA:
-1. LIMIT: Użyj MAKSYMALNIE ${Math.min(
-      seoLinks.length,
-      maxLinks
-    )} linków z podanych ${seoLinks.length}
-   - Tekst ma ${characters} znaków → max ${maxLinks} linków
+═══════════════════════════════════════════════════════════════
+📍 GDZIE WSTAWIĆ LINK - KONKRETNA INSTRUKCJA:
+═══════════════════════════════════════════════════════════════
 
-2. GDZIE UMIEŚCIĆ LINKI:
-   ✅ W środku akapitu <p> (NIE na początku, NIE na końcu)
-   ✅ W kontekście naturalnego zdania
-   ✅ Rozmieszczone równomiernie (${Math.floor(
-     characters / Math.min(seoLinks.length, maxLinks)
-   )} znaków między linkami)
-   ❌ NIGDY w <h1>, <h2>, <h3>
-   ❌ NIGDY 2 linki w tym samym zdaniu
-   ❌ NIGDY obok siebie
+Dla tematu "${text.topic}" wstaw link "${seoLinks[0]?.anchor}" w zdaniu typu:
 
-3. SKŁADNIA HTML:
-   <a href="${seoLinks[0]?.url || "URL"}">${seoLinks[0]?.anchor || "anchor"}</a>
-   
-   PRZYKŁAD PRAWIDŁOWEGO UŻYCIA:
-   <p>W dzisiejszych czasach <a href="${seoLinks[0]?.url}">${
+✅ PRZYKŁAD PRAWIDŁOWEGO UŻYCIA W KONTEKŚCIE:
+<p>Firmy z Torunia coraz częściej korzystają z usług profesjonalnych 
+specjalistów. Współpraca z doświadczoną <a href="${seoLinks[0]?.url}">${
       seoLinks[0]?.anchor
-    }</a> staje się coraz ważniejsze dla firm pragnących rozwijać swoją obecność online.</p>
+    }</a> 
+pozwala osiągnąć znacznie lepsze wyniki w krótszym czasie. Dzięki temu 
+przedsiębiorcy mogą skupić się na rozwoju swojego biznesu.</p>
 
-4. ANCHOR TEXT:
-   - Użyj DOKŁADNIE podanego anchora: "${seoLinks[0]?.anchor}"
-   - NIE zmieniaj, NIE skracaj, NIE dodawaj słów
-   - Anchor musi pasować do kontekstu zdania
+⚠️⚠️⚠️ ZASADY WSTAWIANIA LINKÓW:
+1. ŚRODEK akapitu (NIE początek, NIE koniec!)
+2. Anchor DOKŁADNIE taki jak podany: "${seoLinks[0]?.anchor}"
+3. NATURALNIE wkomponowany w zdanie
+4. POPRAWNA odmiana gramatyczna!
 
-5. KOLEJNOŚĆ:
-   - Użyj linków w podanej kolejności (najpierw link 1, potem 2, itd.)
-   - Jeśli limit jest niższy niż liczba linków, użyj pierwszych ${maxLinks}
-
-6. ROZMIESZCZENIE:
-   ${
-     characters <= 2000
-       ? "- Link 1: około 25% tekstu\n   - Link 2: około 75% tekstu"
-       : characters <= 5000
-       ? "- Link 1: około 20% tekstu\n   - Link 2: około 50% tekstu\n   - Link 3: około 80% tekstu"
-       : "- Linki równomiernie co ~" +
-         Math.floor(characters / maxLinks) +
-         " znaków"
-   }
-
-7. PRZYKŁAD ZŁEGO LINKOWANIA:
-   ❌ Na początku: <p><a href="...">tekst</a> dalszy tekst...</p>
-   ❌ Na końcu: <p>tekst... <a href="...">link</a></p>
-   ❌ W nagłówku: <h2><a href="...">Tytuł z linkiem</a></h2>
-   ❌ Obok siebie: <p>tekst <a href="...">link1</a> i <a href="...">link2</a></p>
-
-8. PRZYKŁAD DOBREGO LINKOWANIA:
-   ✅ <p>Przedsiębiorcy coraz częściej dostrzegają wartość <a href="${
-     seoLinks[0]?.url
-   }">${
+❌ ZŁE (na początku): <p><a href="...">Agencja</a> oferuje...</p>
+❌ ZŁE (na końcu): <p>...warto wybrać <a href="...">agencję</a>.</p>
+❌ ZŁE (zmieniony anchor): <a href="...">Agencja interaktywna</a>
+✅ DOBRE: <p>Dlatego współpraca z profesjonalną <a href="${seoLinks[0]?.url}">${
       seoLinks[0]?.anchor
-    }</a> w budowaniu trwałych relacji z klientami. To podejście przynosi wymierne korzyści w postaci...</p>
+    }</a> przynosi wymierne korzyści w postaci...</p>
 
-⚠️⚠️⚠️ PAMIĘTAJ: Claude MUSI użyć DOKŁADNIE ${Math.min(
-      seoLinks.length,
-      maxLinks
-    )} linków z ${seoLinks.length} podanych!
+═══════════════════════════════════════════════════════════════
+🎯 GDZIE W TEKŚCIE UMIEŚCIĆ LINK:
+═══════════════════════════════════════════════════════════════
+- Link 1: W sekcji 2 lub 3 (około 30-50% tekstu)
+${linksToUse > 1 ? `- Link 2: W sekcji 4 lub 5 (około 60-80% tekstu)` : ""}
+${linksToUse > 2 ? `- Pozostałe: Równomiernie rozłożone` : ""}
 
-    BARDZO BARDZO BARDZO WAŻNE!!!! ->>> anchor musi ZAPISANY PRAWIDŁOWO JĘZYKOWO - niedopuszczalne są NIEWŁAŚCIWE GRAMATYCZNE ODMIANY!!!!
+🔴🔴🔴 PRZYPOMNIENIE: DODAJ ${linksToUse} LINK${
+      linksToUse > 1 ? "I/ÓW" : ""
+    }! 🔴🔴🔴
 `;
   }
 
@@ -991,6 +973,7 @@ async function generateShortContent(
   const seoInstructions = generateSeoInstructions(text);
   const requiredLists = Math.max(1, Math.floor(text.length / 5000));
   const requiredTables = Math.max(1, Math.floor(text.length / 8000));
+  const seoLinks = text.seoLinks ? JSON.parse(text.seoLinks) : [];
 
   // 📏 POBIERZ WZÓR TEKSTU
   const exampleSection = generateExampleSection(targetLength);
@@ -1156,7 +1139,25 @@ JAK KONTROLOWAĆ DŁUGOŚĆ:
 ⚠️ KAŻDE zdanie musi kończyć się kropką, wykrzyknikiem lub znakiem zapytania!
 ═══════════════════════════════════════════════════════════════
 🎯 NAPISZ TEKST (${targetLength} ZNAKÓW, ${requiredLists} list, ${requiredTables} tabel):
-═══════════════════════════════════════════════════════════════`;
+═══════════════════════════════════════════════════════════════
+${
+  seoLinks.length > 0
+    ? `
+═══════════════════════════════════════════════════════════════
+🔴🔴🔴 OSTATNIE PRZYPOMNIENIE - NIE ZAPOMNIJ! 🔴🔴🔴
+═══════════════════════════════════════════════════════════════
+ZANIM ZAKOŃCZYSZ, SPRAWDŹ:
+□ Czy dodałeś link: <a href="${seoLinks[0]?.url}">${seoLinks[0]?.anchor}</a>?
+□ Czy link jest W ŚRODKU akapitu (nie na początku/końcu)?
+□ Czy anchor brzmi naturalnie w zdaniu?
+
+⚠️ TEKST BEZ LINKU SEO = ODRZUCONY!
+═══════════════════════════════════════════════════════════════
+`
+    : ""
+}
+
+`;
 
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-5-20250929",
@@ -2017,6 +2018,7 @@ async function generateWithStructure(
 
   const requiredLists = Math.max(1, Math.floor(partLength / 5000));
   const requiredTables = Math.max(1, Math.floor(partLength / 8000));
+  const seoLinks = text.seoLinks ? JSON.parse(text.seoLinks) : [];
 
   // ✅ WYCIĄGNIJ LISTĘ H2 ZE STRUKTURY KIEROWNIKA
   const h2Regex = /<h2[^>]*>([^<]*)<\/h2>/gi;
@@ -2283,7 +2285,25 @@ ${sources.substring(0, 50000)}
 
 ═══════════════════════════════════════════════════════════════
 🎯 NAPISZ PEŁNĄ TREŚĆ dla ${writerAssignment.sections} (${targetLength} znaków):
-═══════════════════════════════════════════════════════════════`;
+═══════════════════════════════════════════════════════════════
+${
+  seoLinks.length > 0
+    ? `
+═══════════════════════════════════════════════════════════════
+🔴🔴🔴 OSTATNIE PRZYPOMNIENIE - NIE ZAPOMNIJ! 🔴🔴🔴
+═══════════════════════════════════════════════════════════════
+ZANIM ZAKOŃCZYSZ, SPRAWDŹ:
+□ Czy dodałeś link: <a href="${seoLinks[0]?.url}">${seoLinks[0]?.anchor}</a>?
+□ Czy link jest W ŚRODKU akapitu (nie na początku/końcu)?
+□ Czy anchor brzmi naturalnie w zdaniu?
+
+⚠️ TEKST BEZ LINKU SEO = ODRZUCONY!
+═══════════════════════════════════════════════════════════════
+`
+    : ""
+}
+
+`;
 
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-5-20250929",
