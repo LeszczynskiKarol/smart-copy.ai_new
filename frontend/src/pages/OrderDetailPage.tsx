@@ -438,24 +438,22 @@ const TextCard = ({
 
   // 📚 HELPER: Parsuj źródła z text.content
   const getSourcesFromContent = () => {
-    try {
-      if (!text.content) return null;
-      const contentData = JSON.parse(text.content);
+    // Źródła są teraz bezpośrednio w text.sources (z backendu)
+    if (!text.sources) return null;
 
-      const userSources = (contentData.userSourcesScraped || []).filter(
-        (s: any) => s.status === "success" && s.url
-      );
-      const googleSources = (contentData.selectedGoogleSources || []).filter(
-        (s: any) => s.url
-      );
+    const { userSources, googleSources } = text.sources;
 
-      if (userSources.length === 0 && googleSources.length === 0) return null;
-
-      return { userSources, googleSources };
-    } catch (e) {
-      console.error("Błąd parsowania źródeł:", e);
+    if (
+      (!userSources || userSources.length === 0) &&
+      (!googleSources || googleSources.length === 0)
+    ) {
       return null;
     }
+
+    return {
+      userSources: userSources || [],
+      googleSources: googleSources || [],
+    };
   };
 
   const sources = getSourcesFromContent();

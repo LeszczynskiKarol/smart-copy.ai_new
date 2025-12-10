@@ -51,18 +51,30 @@ export const orderRoutes = async (fastify: FastifyInstance) => {
       ...order,
       texts: order.texts.map((text) => {
         let generatedContent = null;
+        let sources = { userSources: [], googleSources: [] };
+
         if (text.content) {
           try {
             const contentData = JSON.parse(text.content);
             generatedContent = contentData.generatedContent || null;
+            sources = {
+              userSources:
+                contentData.userSourcesScraped?.filter(
+                  (s: any) => s.status === "success" && s.url
+                ) || [],
+              googleSources:
+                contentData.selectedGoogleSources?.filter((s: any) => s.url) ||
+                [],
+            };
           } catch (error) {
             console.error(`Failed to parse content for text ${text.id}`);
           }
         }
+
         return {
           ...text,
           generatedContent,
-          // Nie wysyłaj całego content (za duży)
+          sources,
           content: undefined,
         };
       }),
@@ -95,17 +107,30 @@ export const orderRoutes = async (fastify: FastifyInstance) => {
       ...order,
       texts: order.texts.map((text) => {
         let generatedContent = null;
+        let sources = { userSources: [], googleSources: [] };
+
         if (text.content) {
           try {
             const contentData = JSON.parse(text.content);
             generatedContent = contentData.generatedContent || null;
+            sources = {
+              userSources:
+                contentData.userSourcesScraped?.filter(
+                  (s: any) => s.status === "success" && s.url
+                ) || [],
+              googleSources:
+                contentData.selectedGoogleSources?.filter((s: any) => s.url) ||
+                [],
+            };
           } catch (error) {
             console.error(`Failed to parse content for text ${text.id}`);
           }
         }
+
         return {
           ...text,
           generatedContent,
+          sources,
           content: undefined,
         };
       }),
