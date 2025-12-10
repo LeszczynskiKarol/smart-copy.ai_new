@@ -436,6 +436,30 @@ const TextCard = ({
     }
   };
 
+  // 📚 HELPER: Parsuj źródła z text.content
+  const getSourcesFromContent = () => {
+    try {
+      if (!text.content) return null;
+      const contentData = JSON.parse(text.content);
+
+      const userSources = (contentData.userSourcesScraped || []).filter(
+        (s: any) => s.status === "success" && s.url
+      );
+      const googleSources = (contentData.selectedGoogleSources || []).filter(
+        (s: any) => s.url
+      );
+
+      if (userSources.length === 0 && googleSources.length === 0) return null;
+
+      return { userSources, googleSources };
+    } catch (e) {
+      console.error("Błąd parsowania źródeł:", e);
+      return null;
+    }
+  };
+
+  const sources = getSourcesFromContent();
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -620,6 +644,80 @@ const TextCard = ({
                     </>
                   )}
                 </button>
+              )}
+
+              {/* 📚 SEKCJA ŹRÓDEŁ / BIBLIOGRAFIA */}
+              {sources && (
+                <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+                  <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+                      />
+                    </svg>
+                    Źródła (
+                    {sources.userSources.length + sources.googleSources.length})
+                  </h4>
+
+                  {sources.userSources.length > 0 && (
+                    <div className="mb-3">
+                      <p className="text-xs font-medium text-purple-600 dark:text-purple-400 mb-2">
+                        📎 Źródła użytkownika ({sources.userSources.length})
+                      </p>
+                      <ul className="space-y-1">
+                        {sources.userSources.map((source: any, idx: number) => (
+                          <li key={`user-${idx}`} className="text-xs">
+                            <a
+                              href={source.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 dark:text-blue-400 hover:underline break-all"
+                            >
+                              {source.url.length > 80
+                                ? source.url.substring(0, 80) + "..."
+                                : source.url}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {sources.googleSources.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-green-600 dark:text-green-400 mb-2">
+                        🔍 Źródła z wyszukiwania ({sources.googleSources.length}
+                        )
+                      </p>
+                      <ul className="space-y-1">
+                        {sources.googleSources.map(
+                          (source: any, idx: number) => (
+                            <li key={`google-${idx}`} className="text-xs">
+                              <a
+                                href={source.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 dark:text-blue-400 hover:underline break-all"
+                              >
+                                {source.url.length > 80
+                                  ? source.url.substring(0, 80) + "..."
+                                  : source.url}
+                              </a>
+                            </li>
+                          )
+                        )}
+                      </ul>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}
