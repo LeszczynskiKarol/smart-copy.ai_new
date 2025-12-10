@@ -1251,8 +1251,8 @@ async function generateStructure(
 
   if (writersCount === 1) {
     // ✅ NOWY PROMPT Z OGRANICZENIEM STRUKTURY
-    const maxSections = Math.max(2, Math.ceil(text.length / 3000));
-    const maxSubsections = Math.max(3, Math.ceil(text.length / 1500));
+    const maxSections = Math.max(2, Math.ceil(text.length / 4000)); // 10k = 2-3 sekcje H2
+    const maxSubsections = Math.max(2, Math.ceil(text.length / 3000)); // 10k = 3-4 podsekcje H3
 
     prompt = `Jesteś kierownikiem projektu content. Określ ZWIĘZŁĄ strukturę HTML.
 
@@ -1563,6 +1563,11 @@ async function verifyAndFixEnding(
   const lastChunk = fixed.substring(Math.max(0, fixed.length - 800));
 
   console.log(`   🤖 Walidacja zakończenia przez Claude...`);
+  let result = {
+    isComplete: true,
+    charsToRemove: 0,
+    problem: null as string | null,
+  };
 
   try {
     const validationPrompt = `Sprawdź czy ten fragment tekstu HTML kończy się POPRAWNYM, KOMPLETNYM zdaniem polskim.
@@ -1665,8 +1670,8 @@ Jeśli isComplete=false, podaj w "charsToRemove" ile znaków od końca usunąć 
 
   return {
     fixed,
-    wasTruncated: fixed.length !== content.length,
-    reason: "validated_by_claude",
+    wasTruncated: fixed.length !== content.length || !result.isComplete,
+    reason: result.isComplete ? "complete" : "incomplete",
   };
 }
 
@@ -2598,14 +2603,51 @@ export async function generateContent(textId: string) {
     // ═══════════════════════════════════════════════════════════════
 
     // 1. Walidacja zakończenia (Claude sprawdza czy nie urwane)
+    // 1. Walidacja zakończenia - JEŚLI NIEKOMPLETNE, KONTYNUUJ!
     console.log(`\n📋 POST-PROCESSING...`);
-    const endingValidation = await verifyAndFixEnding(
-      finalContent,
-      text.length,
-      true,
-      text.topic
-    );
-    finalContent = endingValidation.fixed;
+
+    let attempts = 0;
+    const MAX_COMPLETION_ATTEMPTS = 3;
+
+    while (attempts < MAX_COMPLETION_ATTEMPTS) {
+      const endingValidation = await verifyAndFixEnding(
+        finalContent,
+        text.length,
+        true,
+        text.topic
+      );
+
+      // Sprawdź czy kompletne
+      if (
+        !endingValidation.wasTruncated ||
+        endingValidation.reason === "complete"
+      ) {
+        finalContent = endingValidation.fixed;
+        console.log(`   ✅ Tekst kompletny po ${attempts} próbach`);
+        break;
+      }
+
+      // Niekompletne - uruchom kontynuację
+      attempts++;
+      console.log(`   🔄 Tekst niekompletny - kontynuacja #${attempts}...`);
+
+      finalContent = await continueFromTruncation(
+        endingValidation.fixed,
+        text,
+        sources,
+        text.length >= 10000
+          ? (
+              await prisma.text.findUnique({ where: { id: textId } })
+            )?.structureResponse || undefined
+          : undefined
+      );
+    }
+
+    if (attempts >= MAX_COMPLETION_ATTEMPTS) {
+      console.log(
+        `   ⚠️ Osiągnięto limit ${MAX_COMPLETION_ATTEMPTS} prób kontynuacji`
+      );
+    }
 
     // 2. Walidacja i uzupełnienie linków SEO
     const seoLinks = text.seoLinks ? JSON.parse(text.seoLinks) : [];
