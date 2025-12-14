@@ -1,7 +1,7 @@
 // backend/src/services/textGenerationService.ts
 import Anthropic from "@anthropic-ai/sdk";
-import axios from "axios";
 import { Text } from "@prisma/client";
+import axios from "axios";
 import { generateExampleSection } from "./textExamples";
 
 const anthropic = new Anthropic({
@@ -105,7 +105,7 @@ przedsiębiorcy mogą skupić się na rozwoju swojego biznesu.</p>
 1. ŚRODEK akapitu (NIE początek, NIE koniec!)
 2. Anchor DOKŁADNIE taki jak podany: "${seoLinks[0]?.anchor}"
 3. NATURALNIE wkomponowany w zdanie
-4. POPRAWNA odmiana gramatyczna!
+4. POPRAWNA odmiana gramatyczna! MUSISZ ułożyć zdanie w taki sposób, aby link został wstawiony zarówno zgodnie z gramatyką danego języka, jak i literalnie w sposób, w jaki podał user.
 
 ❌ ZŁE (na początku): <p><a href="...">Agencja</a> oferuje...</p>
 ❌ ZŁE (na końcu): <p>...warto wybrać <a href="...">agencję</a>.</p>
