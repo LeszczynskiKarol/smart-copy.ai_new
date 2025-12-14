@@ -1,8 +1,8 @@
 // backend/src/routes/text.routes.ts
 import { FastifyInstance } from "fastify";
+import puppeteer from "puppeteer";
 import { prisma } from "../lib/prisma";
 import { authenticateToken } from "../middleware/auth.middleware";
-import puppeteer from "puppeteer";
 
 export const textRoutes = async (fastify: FastifyInstance) => {
   fastify.addHook("onRequest", authenticateToken);
@@ -86,7 +86,15 @@ export const textRoutes = async (fastify: FastifyInstance) => {
         // ✅ GENERUJ PDF Z PUPPETEER
         const browser = await puppeteer.launch({
           headless: true,
-          args: ["--no-sandbox", "--disable-setuid-sandbox"],
+          executablePath: "/usr/bin/chromium-browser", // ← jawna ścieżka
+          args: [
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-gpu",
+            "--single-process",
+            "--no-zygote",
+          ],
         });
 
         const page = await browser.newPage();
@@ -239,10 +247,17 @@ export const textRoutes = async (fastify: FastifyInstance) => {
 
         return reply.send(pdf);
       } catch (error) {
-        fastify.log.error("PDF generation error:");
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        const errorStack = error instanceof Error ? error.stack : "";
+
+        fastify.log.error(`PDF generation error: ${errorMessage}`);
+        fastify.log.error(`Stack: ${errorStack}`);
+        console.error("Full PDF error:", error);
+
         return reply.code(500).send({
           error: "Błąd generowania PDF",
-          details: error instanceof Error ? error.message : "Unknown error",
+          details: errorMessage,
         });
       }
     }
