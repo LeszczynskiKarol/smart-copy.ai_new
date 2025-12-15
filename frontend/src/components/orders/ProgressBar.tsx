@@ -1,5 +1,5 @@
 // frontend/src/components/orders/ProgressBar.tsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
@@ -128,8 +128,6 @@ function calculateProgress(
     const now = Date.now();
     const actualElapsed = Math.floor((now - start) / 1000);
     const rawProgress = (actualElapsed / totalDuration) * 100;
-
-    // ✅ CAP NA 98% (będzie nadpisane w komponencie dla completed)
     return Math.min(98, rawProgress);
   }
 
@@ -152,12 +150,10 @@ const InitializingLoader = ({ textLength }: { textLength: number }) => {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    // Rotacja tipów co 2s
     const tipInterval = setInterval(() => {
       setCurrentTip((prev) => (prev + 1) % LOADING_TIPS.length);
     }, 2000);
 
-    // Symulowany progress (0-90% w 10 sekund)
     const progressInterval = setInterval(() => {
       setProgress((prev) => {
         if (prev >= 90) return prev;
@@ -178,7 +174,6 @@ const InitializingLoader = ({ textLength }: { textLength: number }) => {
       exit={{ opacity: 0, y: -20 }}
       className="mt-4 p-6 bg-gradient-to-br from-purple-50 via-indigo-50 to-blue-50 dark:from-purple-900/20 dark:via-indigo-900/20 dark:to-blue-900/20 rounded-xl border-2 border-purple-200 dark:border-purple-800 relative overflow-hidden"
     >
-      {/* Animated background */}
       <motion.div
         animate={{
           backgroundPosition: ["0% 0%", "100% 100%"],
@@ -197,7 +192,6 @@ const InitializingLoader = ({ textLength }: { textLength: number }) => {
       />
 
       <div className="relative z-10">
-        {/* Header z ikonami */}
         <div className="flex items-center justify-center gap-3 mb-4">
           <motion.div
             animate={{
@@ -239,12 +233,10 @@ const InitializingLoader = ({ textLength }: { textLength: number }) => {
           </motion.div>
         </div>
 
-        {/* Główny tekst */}
         <h3 className="text-xl font-bold text-center text-gray-900 dark:text-white mb-2">
           Przygotowuję generator AI...
         </h3>
 
-        {/* Animowane tipy */}
         <div className="h-6 mb-4 overflow-hidden">
           <AnimatePresence mode="wait">
             <motion.p
@@ -260,14 +252,12 @@ const InitializingLoader = ({ textLength }: { textLength: number }) => {
           </AnimatePresence>
         </div>
 
-        {/* Progress bar z shimmer effect */}
         <div className="relative h-3 bg-white dark:bg-gray-800 rounded-full overflow-hidden mb-4 shadow-inner">
           <motion.div
             className="absolute inset-0 bg-gradient-to-r from-purple-500 via-indigo-500 to-blue-500"
             style={{ width: `${progress}%` }}
             transition={{ duration: 0.3 }}
           />
-          {/* Shimmer effect */}
           <motion.div
             animate={{
               x: ["-100%", "200%"],
@@ -281,14 +271,12 @@ const InitializingLoader = ({ textLength }: { textLength: number }) => {
           />
         </div>
 
-        {/* Info o tekście */}
         <div className="flex items-center justify-center gap-4 text-xs text-gray-600 dark:text-gray-400">
           <span>📝 {textLength.toLocaleString()} znaków</span>
           <span>•</span>
           <span>⏱️ Start za moment...</span>
         </div>
 
-        {/* Pulsujące kropki */}
         <div className="flex justify-center gap-2 mt-4">
           {[0, 1, 2].map((i) => (
             <motion.div
@@ -316,21 +304,36 @@ export const ProgressBar = ({
   textLength,
   startTime,
 }: ProgressBarProps) => {
+  // ✅ WSZYSTKIE HOOKI NA POCZĄTKU - PRZED JAKIMKOLWIEK RETURN!
   const [showCompletionAnimation, setShowCompletionAnimation] = useState(false);
   const [finalBoxVisible, setFinalBoxVisible] = useState(false);
 
-  // 🎯 JEŚLI BRAK PROGRESS - POKAŻ INITIALIZING LOADER
-  if (!progress) {
-    return <InitializingLoader textLength={textLength} />;
-  }
+  // Normalizacja progress
+  const normalizedProgress = useMemo(() => {
+    if (!progress) return null;
+    if (progress === "reading") return "scraping-all";
+    if (progress === "select") return "selecting";
+    return progress;
+  }, [progress]);
 
-  // ✅ OBSŁUGA COMPLETED - płynne przejście
+  const currentIndex = useMemo(() => {
+    if (!normalizedProgress) return -1;
+    return STAGES.findIndex((s) => s.id === normalizedProgress);
+  }, [normalizedProgress]);
+
+  const [remainingSeconds, setRemainingSeconds] = useState(() =>
+    calculateRemainingTime(normalizedProgress, textLength, startTime)
+  );
+
+  const [progressPercent, setProgressPercent] = useState(() =>
+    calculateProgress(currentIndex, textLength, startTime)
+  );
+
+  // ✅ HOOK DLA COMPLETED - ZAWSZE WYWOŁYWANY
   useEffect(() => {
     if (progress === "completed" && !showCompletionAnimation) {
-      // Pokaż animację zakończenia
       setShowCompletionAnimation(true);
 
-      // Po 4 sekundach pokaż finalny box
       const timer = setTimeout(() => {
         setFinalBoxVisible(true);
       }, 4000);
@@ -338,6 +341,37 @@ export const ProgressBar = ({
       return () => clearTimeout(timer);
     }
   }, [progress, showCompletionAnimation]);
+
+  // ✅ HOOK DLA PROGRESS UPDATE - ZAWSZE WYWOŁYWANY
+  useEffect(() => {
+    // Nie aktualizuj jeśli brak progress lub completed
+    if (!normalizedProgress || normalizedProgress === "completed") return;
+
+    const interval = setInterval(() => {
+      const newRemaining = calculateRemainingTime(
+        normalizedProgress,
+        textLength,
+        startTime
+      );
+      const newProgress = calculateProgress(
+        currentIndex,
+        textLength,
+        startTime
+      );
+
+      setRemainingSeconds(newRemaining > 0 ? newRemaining : 0);
+      setProgressPercent(newProgress);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [normalizedProgress, textLength, startTime, currentIndex]);
+
+  // ✅ TERAZ EARLY RETURNS - PO WSZYSTKICH HOOKACH!
+
+  // 🎯 JEŚLI BRAK PROGRESS - POKAŻ INITIALIZING LOADER
+  if (!progress) {
+    return <InitializingLoader textLength={textLength} />;
+  }
 
   // ✅ JEŚLI COMPLETED - POKAŻ ANIMACJĘ LUB FINALNY BOX
   if (progress === "completed") {
@@ -350,7 +384,6 @@ export const ProgressBar = ({
           exit={{ opacity: 0, scale: 0.95 }}
           className="mt-4 p-4 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 dark:from-green-900/20 dark:via-emerald-900/20 dark:to-teal-900/20 rounded-lg border-2 border-green-300 dark:border-green-700 relative overflow-hidden"
         >
-          {/* ✨ Confetti effect w tle */}
           <motion.div
             animate={{
               backgroundPosition: ["0% 0%", "100% 100%"],
@@ -411,7 +444,6 @@ export const ProgressBar = ({
               </motion.span>
             </div>
 
-            {/* Progress bar - animacja 98% → 100% */}
             <div className="h-3 bg-green-100 dark:bg-green-900/40 rounded-full overflow-hidden mb-4 shadow-inner">
               <motion.div
                 className="h-full bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 relative"
@@ -422,7 +454,6 @@ export const ProgressBar = ({
                   ease: "easeOut",
                 }}
               >
-                {/* Shimmer effect */}
                 <motion.div
                   animate={{
                     x: ["-100%", "200%"],
@@ -437,7 +468,6 @@ export const ProgressBar = ({
               </motion.div>
             </div>
 
-            {/* Animowany tekst "Twój tekst jest gotowy!" */}
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -470,7 +500,6 @@ export const ProgressBar = ({
               </motion.p>
             </motion.div>
 
-            {/* Pulsujące gwiazdki */}
             <div className="flex justify-center gap-3 mt-4">
               {[0, 1, 2, 3, 4].map((i) => (
                 <motion.div
@@ -555,40 +584,6 @@ export const ProgressBar = ({
   }
 
   // ✅ NORMALNY PROGRESS (dla IN_PROGRESS)
-  let normalizedProgress = progress;
-  if (progress === "reading") normalizedProgress = "scraping-all";
-  if (progress === "select") normalizedProgress = "selecting";
-
-  const currentIndex = STAGES.findIndex((s) => s.id === normalizedProgress);
-
-  const [remainingSeconds, setRemainingSeconds] = useState(() =>
-    calculateRemainingTime(normalizedProgress, textLength, startTime)
-  );
-
-  const [progressPercent, setProgressPercent] = useState(() =>
-    calculateProgress(currentIndex, textLength, startTime)
-  );
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const newRemaining = calculateRemainingTime(
-        normalizedProgress,
-        textLength,
-        startTime
-      );
-      const newProgress = calculateProgress(
-        currentIndex,
-        textLength,
-        startTime
-      );
-
-      setRemainingSeconds(newRemaining > 0 ? newRemaining : 0);
-      setProgressPercent(newProgress);
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [normalizedProgress, textLength, startTime, currentIndex]);
-
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
@@ -618,7 +613,7 @@ export const ProgressBar = ({
         </div>
       </div>
 
-      {/* Progress bar - PŁYNNY */}
+      {/* Progress bar */}
       <div className="h-2 bg-blue-100 dark:bg-blue-900/40 rounded-full overflow-hidden mb-4">
         <motion.div
           className="h-full bg-gradient-to-r from-blue-500 to-purple-500"
@@ -630,7 +625,7 @@ export const ProgressBar = ({
         />
       </div>
 
-      {/* Stages - BEZ ZMIAN */}
+      {/* Stages */}
       <div className="space-y-2">
         {STAGES.map((stage, index) => {
           const Icon = stage.icon;
