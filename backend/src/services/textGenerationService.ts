@@ -1661,6 +1661,19 @@ Jeśli isComplete=false, podaj w "charsToRemove" ile znaków od końca usunąć 
       .trim();
     result = JSON.parse(cleanResponse);
 
+    // 🆕 DODAJ FALLBACK dla hasConclusion
+    if (result.hasConclusion === undefined && isLastPart) {
+      // Claude nie zwrócił hasConclusion - sprawdź ręcznie
+      const hasEndingKeywords =
+        /podsumowani|wnioski?|zakończeni|na koniec|podsumowując/i.test(
+          lastChunk
+        );
+      result.hasConclusion = hasEndingKeywords;
+      console.log(
+        `   🔍 Fallback hasConclusion: ${result.hasConclusion} (keywords: ${hasEndingKeywords})`
+      );
+    }
+
     console.log(`   📊 Claude mówi: isComplete=${result.isComplete}`);
     if (result.problem) {
       console.log(`   ⚠️ Problem: ${result.problem}`);
@@ -2714,25 +2727,12 @@ export async function generateContent(textId: string) {
     // ═══════════════════════════════════════════════════════════════
     // 🆕 POST-PROCESSING: WALIDACJA I NAPRAWY KOŃCOWE
     // ═══════════════════════════════════════════════════════════════
-
-    // 1. Walidacja zakończenia (Claude sprawdza czy nie urwane)
-    // 1. Walidacja zakończenia - JEŚLI NIEKOMPLETNE, KONTYNUUJ!
     console.log(`\n📋 POST-PROCESSING...`);
 
     let attempts = 0;
     const MAX_COMPLETION_ATTEMPTS = 5;
 
     while (attempts < MAX_COMPLETION_ATTEMPTS) {
-      // 🆕 Warunek wyjścia: tekst już >150% celu
-      if (finalContent.length > text.length * 1.5) {
-        console.log(
-          `   ⚠️ Tekst przekracza 150% celu (${finalContent.length} > ${
-            text.length * 1.5
-          }) - kończę`
-        );
-        break;
-      }
-
       const endingValidation = await verifyAndFixEnding(
         finalContent,
         text.length,
@@ -2740,35 +2740,50 @@ export async function generateContent(textId: string) {
         text.topic
       );
 
-      // Sprawdź czy kompletne
+      // 1. ZAWSZE sprawdź czy ma zakończenie - nawet jeśli przekracza limit!
+      if (endingValidation.needsConclusion) {
+        console.log(`   ⚠️ Brak zakończenia - generuję podsumowanie...`);
+        finalContent = await addConclusion(endingValidation.fixed, text);
+        console.log(
+          `   ✅ Dodano zakończenie, nowa długość: ${finalContent.length} znaków`
+        );
+        break;
+      }
+
+      // 2. Warunek wyjścia: tekst już >150% celu (ale MA zakończenie)
+      if (finalContent.length > text.length * 1.5) {
+        console.log(
+          `   ⚠️ Tekst przekracza 150% celu - kończę (zakończenie OK)`
+        );
+        finalContent = endingValidation.fixed;
+        break;
+      }
+
+      // 3. Sprawdź czy kompletne (zdania nie urwane)
       if (
         !endingValidation.wasTruncated ||
         endingValidation.reason === "complete"
       ) {
-        // 🆕 Sprawdź czy ma zakończenie
-        if (endingValidation.needsConclusion === false) {
-          console.log(`   ⚠️ Brak zakończenia - generuję podsumowanie...`);
-          finalContent = await addConclusion(endingValidation.fixed, text);
-        } else {
-          finalContent = endingValidation.fixed;
-        }
+        finalContent = endingValidation.fixed;
         console.log(`   ✅ Tekst kompletny po ${attempts} próbach`);
         break;
       }
 
-      // Niekompletne - uruchom kontynuację
+      // 4. Niekompletne - uruchom kontynuację
       attempts++;
       console.log(`   🔄 Tekst niekompletny - kontynuacja #${attempts}...`);
+
+      const structureResponse =
+        text.length >= 10000
+          ? (await prisma.text.findUnique({ where: { id: textId } }))
+              ?.structureResponse || undefined
+          : undefined;
 
       finalContent = await continueFromTruncation(
         endingValidation.fixed,
         text,
         sources,
-        text.length >= 10000
-          ? (
-              await prisma.text.findUnique({ where: { id: textId } })
-            )?.structureResponse || undefined
-          : undefined
+        structureResponse
       );
     }
 
