@@ -1574,7 +1574,12 @@ async function verifyAndFixEnding(
   contentLength: number,
   isLastPart: boolean = false,
   textTopic: string = ""
-): Promise<{ fixed: string; wasTruncated: boolean; reason: string }> {
+): Promise<{
+  fixed: string;
+  wasTruncated: boolean;
+  reason: string;
+  needsConclusion?: boolean;
+}> {
   console.log(`\n🔍🔍🔍 WERYFIKACJA ZAKOŃCZENIA 🔍🔍🔍`);
   console.log(`   📏 Długość wejściowa: ${content.length} znaków`);
   console.log(`   🎯 Cel: ${contentLength} znaków`); // ✅ UŻYTE
@@ -1595,13 +1600,14 @@ async function verifyAndFixEnding(
   }
 
   // 2. 🆕 WALIDACJA PRZEZ CLAUDE - rozumie czy zdanie jest kompletne
-  const lastChunk = fixed.substring(Math.max(0, fixed.length - 800));
+  const lastChunk = fixed.substring(Math.max(0, fixed.length - 1500));
 
   console.log(`   🤖 Walidacja zakończenia przez Claude...`);
   let result = {
     isComplete: true,
     charsToRemove: 0,
     problem: null as string | null,
+    hasConclusion: true,
   };
 
   try {
@@ -1617,14 +1623,23 @@ SPRAWDŹ:
 1. Czy ostatnie zdanie jest gramatycznie poprawne?
 2. Czy nie jest urwane w połowie słowa? (np. "zaoszczę" zamiast "zaoszczędzony")
 3. Czy kończy się sensownie?
-${isLastPart ? "4. Czy ma naturalne zakończenie artykułu?" : ""}
+${
+  isLastPart
+    ? `4. Czy ma NATURALNE ZAKOŃCZENIE ARTYKUŁU?
+   - Zakończenie to sekcja podsumowująca (np. "Podsumowanie", "Wnioski")
+   - LUB akapit z CTA (wezwaniem do działania)
+   - LUB akapit zamykający temat całościowo
+   - Sam koniec sekcji merytorycznej to NIE jest zakończenie!`
+    : ""
+}
 
 ODPOWIEDZ TYLKO W JSON (bez markdown):
 {
   "isComplete": true/false,
   "lastSentence": "ostatnie zdanie",
   "problem": "opis problemu lub null",
-  "charsToRemove": 0
+  "charsToRemove": 0,
+  "hasConclusion": ${isLastPart ? "true/false" : "true"}
 }
 
 Jeśli isComplete=false, podaj w "charsToRemove" ile znaków od końca usunąć żeby mieć pełne zdanie.`;
@@ -1713,6 +1728,7 @@ Jeśli isComplete=false, podaj w "charsToRemove" ile znaków od końca usunąć 
     fixed,
     wasTruncated: fixed.length !== content.length || !result.isComplete,
     reason: result.isComplete ? "complete" : "incomplete",
+    needsConclusion: result.hasConclusion === false,
   };
 }
 
@@ -2487,6 +2503,62 @@ ZANIM ZAKOŃCZYSZ, SPRAWDŹ:
   return finalResponse;
 }
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🆕 GENEROWANIE ZAKOŃCZENIA ARTYKUŁU
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function addConclusion(content: string, text: any): Promise<string> {
+  console.log(`\n📝 GENEROWANIE ZAKOŃCZENIA ARTYKUŁU...`);
+
+  const lastChunk = content.substring(Math.max(0, content.length - 2000));
+
+  const prompt = `Napisz NATURALNE ZAKOŃCZENIE dla tego artykułu HTML.
+
+TEMAT: ${text.topic}
+JĘZYK: ${text.language}
+
+OSTATNIA CZĘŚĆ ARTYKUŁU:
+${lastChunk}
+
+WYMAGANIA:
+1. Napisz 1-2 akapity podsumowujące (300-500 znaków)
+2. Użyj HTML: <h2>Podsumowanie</h2> lub podobny nagłówek + <p>...</p>
+3. Zakończ CTA (wezwaniem do działania) jeśli pasuje do tematu
+4. NIE POWTARZAJ treści z artykułu - podsumuj ogólnie
+5. Zakończ na </p>
+
+NAPISZ TYLKO ZAKOŃCZENIE (bez reszty artykułu):`;
+
+  try {
+    const message = await anthropic.messages.create({
+      model: "claude-sonnet-4-5-20250929",
+      max_tokens: 800,
+      temperature: 0.7,
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const conclusion =
+      message.content[0].type === "text" ? message.content[0].text.trim() : "";
+
+    if (conclusion.length > 100) {
+      console.log(
+        `   ✅ Wygenerowano zakończenie: ${conclusion.length} znaków`
+      );
+
+      let finalContent = content;
+      if (!finalContent.trimEnd().endsWith("</p>")) {
+        finalContent += "</p>";
+      }
+      finalContent += "\n\n" + conclusion;
+
+      return finalContent;
+    }
+  } catch (error) {
+    console.error(`   ❌ Błąd generowania zakończenia:`, error);
+  }
+
+  return content;
+}
+
 // Główna funkcja generowania treści
 export async function generateContent(textId: string) {
   const { PrismaClient } = await import("@prisma/client");
@@ -2673,7 +2745,13 @@ export async function generateContent(textId: string) {
         !endingValidation.wasTruncated ||
         endingValidation.reason === "complete"
       ) {
-        finalContent = endingValidation.fixed;
+        // 🆕 Sprawdź czy ma zakończenie
+        if (endingValidation.needsConclusion === false) {
+          console.log(`   ⚠️ Brak zakończenia - generuję podsumowanie...`);
+          finalContent = await addConclusion(endingValidation.fixed, text);
+        } else {
+          finalContent = endingValidation.fixed;
+        }
         console.log(`   ✅ Tekst kompletny po ${attempts} próbach`);
         break;
       }
