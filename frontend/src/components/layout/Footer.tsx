@@ -139,9 +139,23 @@ export const Footer = () => {
 
         {/* Bottom Bar */}
         <div className="border-t border-gray-800 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-sm text-gray-400">
-            &copy; {currentYear} Smart-Copy.ai. Wszystkie prawa zastrzeżone.
-          </p>
+          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-sm text-gray-400">
+            <p>
+              &copy; {currentYear} Smart-Copy.ai. Wszystkie prawa zastrzeżone.
+            </p>
+            <span className="hidden sm:inline text-gray-600">|</span>
+            <p>
+              Realizacja:{" "}
+              <a
+                href="https://www.torweb.pl"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-purple-400 transition-colors"
+              >
+                TorWeb.pl
+              </a>
+            </p>
+          </div>
           <div className="flex items-center gap-2 text-sm text-gray-400">
             <Mail className="w-4 h-4" />
             <a
