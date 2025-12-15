@@ -11,6 +11,21 @@ const anthropic = new Anthropic({
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY!;
 const GOOGLE_CX = process.env.GOOGLE_CX || "47c4cfcb21523490f";
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🧹 SANITYZACJA TEKSTU - usuwa znaki niedozwolone w PostgreSQL
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function sanitizeTextForDB(text: string): string {
+  if (!text) return "";
+
+  // Usuń null bytes (0x00) - PostgreSQL ich nie akceptuje
+  let sanitized = text.replace(/\x00/g, "");
+
+  // Usuń inne problematyczne znaki kontrolne (oprócz \n, \r, \t)
+  sanitized = sanitized.replace(/[\x01-\x08\x0B\x0C\x0E-\x1F]/g, "");
+
+  return sanitized;
+}
+
 // ✅ HELPER: Generuj instrukcje SEO dla promptu
 function generateSeoInstructions(text: any): string {
   console.log("🎯 generateSeoInstructions CALLED");
@@ -526,12 +541,19 @@ async function scrapeUrls(urls: string[], isUserSource: boolean = false) {
         );
       }
 
-      if (response.status === 200 && response.data.text) {
+      if (
+        response.status === 200 &&
+        response.data.text &&
+        response.data.text.length > 0
+      ) {
         let scrapedText = response.data.text;
         const originalLength = scrapedText.length;
         const remainingSources = urls.length - i;
         const remainingSpace = MAX_TOTAL_LENGTH - currentTotalLength;
         const maxForThisSource = Math.floor(remainingSpace / remainingSources);
+
+        // 🧹 SANITYZUJ przed dalszym przetwarzaniem
+        scrapedText = sanitizeTextForDB(scrapedText);
 
         if (scrapedText.length > maxForThisSource) {
           scrapedText = scrapedText.substring(0, maxForThisSource);
@@ -555,9 +577,22 @@ async function scrapeUrls(urls: string[], isUserSource: boolean = false) {
           `  ✅ Zescrapowano ${scrapedText.length} znaków (łącznie: ${currentTotalLength})`
         );
       } else {
-        console.error(`  ❌ Invalid response - status: ${response.status}`);
-        console.error(`  ❌ Response data: ${JSON.stringify(response.data)}`);
-        throw new Error("Invalid scraper response");
+        // Pusty tekst lub błąd - NIE RZUCAJ BŁĘDU, po prostu zaloguj i kontynuuj
+        console.warn(`  ⚠️ Pusty lub nieprawidłowy response - pomijam źródło`);
+        console.warn(
+          `  ⚠️ Status: ${response.status}, text length: ${
+            response.data.text?.length || 0
+          }`
+        );
+
+        results.push({
+          url,
+          text: "",
+          length: 0,
+          status: "failed",
+          error: "Empty response from scraper",
+          isUserSource,
+        });
       }
 
       await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -802,11 +837,11 @@ export async function processOrder(orderId: string) {
 
         // ZAPISZ W BAZIE
         const contentData = {
-          googleQuery,
+          googleQuery: sanitizeTextForDB(googleQuery),
           allSearchResults: searchResults.items.map((item: any) => ({
-            title: item.title,
+            title: sanitizeTextForDB(item.title || ""),
             link: item.link,
-            snippet: item.snippet,
+            snippet: sanitizeTextForDB(item.snippet || ""),
           })),
           allGoogleScraped: allGoogleScraped.map((r: any) => ({
             url: r.url,
@@ -826,7 +861,7 @@ export async function processOrder(orderId: string) {
           scrapedContent: allScrapedResults.map((r) => ({
             url: r.url,
             length: r.length,
-            text: r.text,
+            text: sanitizeTextForDB(r.text || ""), // 🧹 SANITYZUJ!
             status: r.status,
             isUserSource: r.isUserSource || false,
           })),
@@ -2699,13 +2734,39 @@ export async function generateContent(textId: string) {
 
     // Zapisz wygenerowaną treść (bez zmian)
     const existingData = JSON.parse(text.content || "{}");
-    existingData.generatedContent = finalContent;
+    existingData.generatedContent = sanitizeTextForDB(finalContent);
     existingData.generatedAt = new Date().toISOString();
 
-    await prisma.text.update({
-      where: { id: textId },
-      data: { content: JSON.stringify(existingData, null, 2) },
-    });
+    try {
+      const contentJson = JSON.stringify(existingData, null, 2);
+      const sanitizedJson = sanitizeTextForDB(contentJson);
+
+      await prisma.text.update({
+        where: { id: textId },
+        data: { content: sanitizedJson },
+      });
+    } catch (dbError: any) {
+      console.error(`❌ Błąd zapisu do bazy:`, dbError.message);
+
+      // Spróbuj zapisać bez problematycznych treści
+      try {
+        const fallbackData = {
+          ...existingData,
+          scrapedContent: [], // Usuń problematyczne źródła
+          generatedContent: sanitizeTextForDB(finalContent),
+          dbError: dbError.message,
+        };
+
+        await prisma.text.update({
+          where: { id: textId },
+          data: { content: JSON.stringify(fallbackData, null, 2) },
+        });
+        console.log(`⚠️ Zapisano bez źródeł (fallback)`);
+      } catch (fallbackError) {
+        console.error(`❌ Fallback też nie zadziałał:`, fallbackError);
+        // Kontynuuj mimo wszystko - nie zatrzymuj procesu!
+      }
+    }
 
     console.log(`✅ TREŚĆ HTML "${text.topic}" WYGENEROWANA!\n`);
     return finalContent;
